@@ -9,7 +9,7 @@ import { toggleDark } from '~/composables'
     <el-menu-item index="/">
       <div class="flex items-center justify-center gap-2">
         <div class="text-xl" i-ep-element-plus />
-        <span>Element Plus</span>
+        <span>JProject 展示平台</span>
       </div>
     </el-menu-item>
     <el-sub-menu index="2">
