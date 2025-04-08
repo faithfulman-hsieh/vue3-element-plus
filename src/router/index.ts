@@ -1,3 +1,4 @@
+// src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router';
 import HelloWorld from '../components/HelloWorld.vue'; // 預設首頁
 import AboutView from '../pages/nav/AboutView.vue'; // About 頁面
