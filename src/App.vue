@@ -1,3 +1,4 @@
+<!--src/App.vue-->
 <template>
   <el-config-provider namespace="ep">
     <BaseHeader />
