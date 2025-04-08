@@ -1,3 +1,4 @@
+//src/main.ts
 import type { UserModule } from './types'
 import { ViteSSG } from 'vite-ssg'
 import { routes } from './router'
