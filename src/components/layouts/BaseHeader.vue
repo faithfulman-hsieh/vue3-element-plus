@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { repository } from '~/../package.json'
-
-import { toggleDark } from '~/composables'
+import { repository } from '../../../package.json'; // 調整路徑
+import { toggleDark } from '../../composables'; // 調整路徑
 </script>
 
 <template>
@@ -12,41 +11,19 @@ import { toggleDark } from '~/composables'
         <span>JProject 展示平台</span>
       </div>
     </el-menu-item>
+    <el-menu-item index="/about">
+      <span>About</span>
+    </el-menu-item>
     <el-sub-menu index="2">
       <template #title>
         Workspace
       </template>
-      <el-menu-item index="2-1">
-        item one
-      </el-menu-item>
-      <el-menu-item index="2-2">
-        item two
-      </el-menu-item>
-      <el-menu-item index="2-3">
-        item three
-      </el-menu-item>
-      <el-sub-menu index="2-4">
-        <template #title>
-          item four
-        </template>
-        <el-menu-item index="2-4-1">
-          item one
-        </el-menu-item>
-        <el-menu-item index="2-4-2">
-          item two
-        </el-menu-item>
-        <el-menu-item index="2-4-3">
-          item three
-        </el-menu-item>
-      </el-sub-menu>
+      <el-menu-item index="2-1">item one</el-menu-item>
+      <el-menu-item index="2-2">item two</el-menu-item>
+      <el-menu-item index="2-3">item three</el-menu-item>
     </el-sub-menu>
-    <el-menu-item index="3" disabled>
-      Info
-    </el-menu-item>
-    <el-menu-item index="4">
-      Orders
-    </el-menu-item>
-
+    <el-menu-item index="3" disabled>Info</el-menu-item>
+    <el-menu-item index="4">Orders</el-menu-item>
     <el-menu-item h="full" @click="toggleDark()">
       <button
         class="w-full cursor-pointer border-none bg-transparent"
@@ -55,7 +32,6 @@ import { toggleDark } from '~/composables'
         <i inline-flex i="dark:ep-moon ep-sunny" />
       </button>
     </el-menu-item>
-
     <el-menu-item h="full">
       <a class="size-full flex items-center justify-center" :href="repository.url" target="_blank">
         <div i-ri-github-fill />
