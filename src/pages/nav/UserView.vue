@@ -1,5 +1,5 @@
 <template>
   <div>
-    Item One
+    User
   </div>
 </template>

@@ -12,18 +12,19 @@ import { toggleDark } from '../../composables'; // 調整路徑
       </div>
     </el-menu-item>
     <el-menu-item index="/about">
-      <span>About</span>
+      <span>關於平台</span>
     </el-menu-item>
-    <el-sub-menu index="2">
-      <template #title>
-        Workspace
-      </template>
-      <el-menu-item index="2-1">item one</el-menu-item>
-      <el-menu-item index="2-2">item two</el-menu-item>
-      <el-menu-item index="2-3">item three</el-menu-item>
-    </el-sub-menu>
-    <el-menu-item index="3" disabled>Info</el-menu-item>
-    <el-menu-item index="4">Orders</el-menu-item>
+<!--    <el-sub-menu index="2">-->
+<!--      <template #title>-->
+<!--        Workspace-->
+<!--      </template>-->
+<!--      <el-menu-item index="2-1">item one</el-menu-item>-->
+<!--      <el-menu-item index="2-2">item two</el-menu-item>-->
+<!--      <el-menu-item index="2-3">item three</el-menu-item>-->
+<!--    </el-sub-menu>-->
+<!--    <el-menu-item index="3" disabled>Info</el-menu-item>-->
+    <el-menu-item index="/user">使用者管理</el-menu-item>
+    <el-menu-item index="/todo">待辦管理</el-menu-item>
     <el-menu-item h="full" @click="toggleDark()">
       <button
         class="w-full cursor-pointer border-none bg-transparent"
