@@ -16,7 +16,16 @@ function toast() {
 const value1 = ref(true)
 </script>
 
+
 <template>
+
+  <div>
+      <h1>元件庫</h1>
+        <!-- <div class="content-box">
+            <TheWelcome />
+      </div> -->
+  </div>
+
   <h1 color="$ep-color-primary">
     {{ msg }}
   </h1>

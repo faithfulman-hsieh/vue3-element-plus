@@ -78,28 +78,8 @@
       width: 50%; /* 表單寬度設為畫面的 1/2 */
       margin: 0 auto; /* 保持居中 */
     }
-
     .label-wrapper {
       text-align: right;
-      padding-right: 20px;
-      color: #666;
       line-height: 40px; /* 與輸入框高度對齊 */
-    }
-
-    .button-item {
-      text-align: right;
-      margin-bottom: 0; /* 移除 el-form-item 的底部間距 */
-    }
-
-    /* 確保按鈕完全靠右 */
-    .button-item :deep(.el-form-item__content) {
-      display: flex;
-      justify-content: flex-end;
-      padding-right: 0; /* 移除可能存在的右內邊距 */
-    }
-
-    /* 移除 el-form-item 的偽元素影響 */
-    .button-item :deep(.el-form-item__content::after) {
-      display: none;
     }
 </style>

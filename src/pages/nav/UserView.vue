@@ -170,5 +170,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 只保留頁面特定的樣式，若有需要可添加 */
+    .label-wrapper {
+      text-align: right;
+      line-height: 40px; /* 與輸入框高度對齊 */
+    }
 </style>
