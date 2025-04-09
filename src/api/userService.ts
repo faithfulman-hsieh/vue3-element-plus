@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // 定義 API 基礎路徑拆分 PROD/DEV
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_APP_BASE_URL;
 
 axios.defaults.withCredentials = true;
 
