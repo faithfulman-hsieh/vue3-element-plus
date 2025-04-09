@@ -1,5 +1,6 @@
 //src/main.ts
 import { createApp } from 'vue' // 改用標準的 createApp
+import { createPinia } from 'pinia'
 import type { UserModule } from './types'
 import App from './App.vue'
 import router from './router' // 引入 Vue Router
@@ -10,7 +11,7 @@ import 'element-plus/theme-chalk/src/message-box.scss'
 
 // 創建並初始化 Vue 應用程式
 const app = createApp(App)
-
+app.use(createPinia())
 // 使用路由
 app.use(router)
 

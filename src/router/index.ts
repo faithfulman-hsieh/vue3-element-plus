@@ -1,7 +1,8 @@
 //src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/userStore';
 import HomeView from '../pages/nav/HomeView.vue' // 首頁頁面
-// import LoginView from '../pages/nav/LoginView.vue' // Login 頁面
+import LoginView from '../pages/nav/LoginView.vue' // Login 頁面
 import UserView from '../pages/nav/UserView.vue' // 使用者頁面
 import TodoView from '../pages/nav/TodoView.vue' // 待辦事項頁面
 import AboutView from '../pages/nav/AboutView.vue' // 關於頁面
@@ -15,20 +16,22 @@ export const routes = [
     component: HomeView,
   },
 ,
-//   {
-//     path: '/login',
-//     name: 'login',
-//     component: LoginView,
-//   },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+  },
   {
     path: '/user',
     name: 'user',
     component: UserView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/todo',
     name: 'todo',
     component: TodoView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/helloWorld',
@@ -50,13 +53,14 @@ const router = createRouter({
 
 // 添加路由守衛
 router.beforeEach((to, from, next) => {
-  //const userStore = useUserStore();
+  const userStore = useUserStore();
   console.log('login');
-//   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-//     next({ name: 'login' });
-//   } else {
+   if (to.meta.requiresAuth && !userStore.isLoggedIn
+       ) {
+     next({ name: 'login' });
+   } else {
      next();
-//   }
+   }
 });
 
 export default router
