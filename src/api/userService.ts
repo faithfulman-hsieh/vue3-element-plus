@@ -14,6 +14,7 @@ const getToken = () => {
 // 登入用戶
 export const loginUser = async (username: string, password: string) => {
   try {
+    console.log(`${API_BASE_URL}/login`);
     const response = await axios.post(`${API_BASE_URL}/login`, { username, password });
     console.info('Login response:', response);
     return response; // 假設後端返回 JWT token
