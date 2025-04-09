@@ -1,23 +1,22 @@
 //src/main.ts
+import { createApp } from 'vue' // 改用標準的 createApp
 import type { UserModule } from './types'
-import { ViteSSG } from 'vite-ssg'
-import { routes } from './router'
 import App from './App.vue'
+import router from './router' // 引入 Vue Router
 import '~/styles/index.scss'
 import 'uno.css'
 import 'element-plus/theme-chalk/src/message.scss'
 import 'element-plus/theme-chalk/src/message-box.scss'
 
-export const createApp = ViteSSG(
-  App,
-  {
-    routes,
-    base: import.meta.env.BASE_URL,
-  },
-  (ctx) => {
-    // install all modules under `modules/`
-    Object.values(import.meta.glob<{ install: UserModule }>('./modules/*.ts', { eager: true }))
-      .forEach(i => i.install?.(ctx))
-    // ctx.app.use(Previewer)
-  },
-)
+// 創建並初始化 Vue 應用程式
+const app = createApp(App)
+
+// 使用路由
+app.use(router)
+
+// 安裝所有模組
+Object.values(import.meta.glob<{ install: UserModule }>('./modules/*.ts', { eager: true }))
+  .forEach(i => i.install?.({ app, router }))
+
+// 掛載應用到 DOM
+app.mount('#app')
