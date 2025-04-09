@@ -1,7 +1,7 @@
 //src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../pages/nav/HomeView.vue' // 首頁頁面
-import LoginView from '../pages/nav/LoginView.vue' // Login 頁面
+// import LoginView from '../pages/nav/LoginView.vue' // Login 頁面
 import UserView from '../pages/nav/UserView.vue' // 使用者頁面
 import TodoView from '../pages/nav/TodoView.vue' // 待辦事項頁面
 import AboutView from '../pages/nav/AboutView.vue' // 關於頁面
@@ -15,11 +15,11 @@ export const routes = [
     component: HomeView,
   },
 ,
-  {
-    path: '/login',
-    name: 'login',
-    component: LoginView,
-  },
+//   {
+//     path: '/login',
+//     name: 'login',
+//     component: LoginView,
+//   },
   {
     path: '/user',
     name: 'user',
