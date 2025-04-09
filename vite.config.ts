@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
     },
 
     // 動態設定 base URL，根據環境變數決定
-    base: env.VITE_APP_BASE_URL || '/', // 使用 env.VITE_APP_BASE_URL
+    //base: env.VITE_API_URL || '/', // 使用 env.VITE_API_URL
 
     css: {
       preprocessorOptions: {

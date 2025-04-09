@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = `${import.meta.env.VITE_APP_BASE_URL}/todos`;
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/todos`;
 axios.defaults.withCredentials = true;
 
 const getToken = () => {
