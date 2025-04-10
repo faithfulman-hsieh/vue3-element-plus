@@ -6,10 +6,10 @@
     <!-- 新增待辦事項 -->
     <el-form :model="newTodo" class="form-card">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">標題</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item prop="title" label-width="0">
             <el-input v-model="newTodo.title" placeholder="輸入標題" />
           </el-form-item>
@@ -17,10 +17,10 @@
         <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">描述</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item prop="description" label-width="0">
             <el-input v-model="newTodo.description" placeholder="輸入描述" />
           </el-form-item>
@@ -28,54 +28,60 @@
         <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">指派人</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item prop="assignee" label-width="0">
             <el-input v-model="newTodo.assignee" placeholder="指派給誰" />
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
+        <el-col :span="8"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="18">
-          <el-form-item class="button-item" label-width="0">
+        <el-col :span="16">
+          <el-form-item label-width="0" class="button-form-item">
             <el-button type="primary" @click="addTodo">新增待辦事項</el-button>
           </el-form-item>
         </el-col>
       </el-row>
     </el-form>
 
-    <!-- 待辦事項列表 -->
-    <el-table :data="todos" class="table-card" border stripe>
-      <el-table-column prop="title" label="標題" min-width="90" />
-      <el-table-column prop="description" label="描述" min-width="100" />
-      <el-table-column prop="status" label="待辦狀態" min-width="60" />
-      <el-table-column prop="processInstanceId" label="流程ID" min-width="70" />
-      <el-table-column prop="assignee" label="指派人" min-width="60" />
-      <el-table-column label="操作" min-width="360">
-        <template #default="{ row }">
-          <el-button @click="showProcessDiagram(row.id)" type="info" size="small">查看狀態</el-button>
-          <template v-if="row.status === '處理待辦'">
-            <el-button @click="completeTodo(row.id)" type="success" size="small">完成</el-button>
-            <el-button @click="reassignTodo(row.id)" type="warning" size="small">重新分派</el-button>
-          </template>
-          <template v-if="row.status === '確認待辦'">
-            <el-select v-model="priority" placeholder="選擇優先級" size="small" class="priority-select">
-              <el-option label="高" value="high" />
-              <el-option label="低" value="low" />
-            </el-select>
-            <el-button @click="confirmTodo(row.id)" type="success" size="small">確認</el-button>
-            <el-button @click="rejectTodo(row.id)" type="danger" size="small">拒絕</el-button>
-          </template>
-          <template v-if="row.status === '審閱待辦'">
-            <el-button @click="approveTodo(row.id)" type="success" size="small">核准</el-button>
-            <el-button @click="rejectReviewTodo(row.id)" type="danger" size="small">拒絕</el-button>
-          </template>
-        </template>
-      </el-table-column>
-    </el-table>
+    <!-- 待辦事項列表：左右各空 1 格，表格佔 22 格 -->
+    <el-row :gutter="20">
+      <el-col :span="22" :offset="1">
+        <el-table :data="todos" class="table-card" border stripe>
+          <el-table-column prop="title" label="標題" min-width="90" />
+          <el-table-column prop="description" label="描述" min-width="100" />
+          <el-table-column prop="status" label="待辦狀態" min-width="60" />
+          <el-table-column prop="processInstanceId" label="流程ID" min-width="70" />
+          <el-table-column prop="assignee" label="指派人" min-width="60" />
+          <el-table-column label="操作" min-width="360">
+            <template #default="{ row }">
+              <div class="action-buttons">
+                <el-button @click="showProcessDiagram(row.id)" type="info" size="small">查看狀態</el-button>
+                <template v-if="row.status === '處理待辦'">
+                  <el-button @click="completeTodo(row.id)" type="success" size="small">完成</el-button>
+                  <el-button @click="reassignTodo(row.id)" type="warning" size="small">重新分派</el-button>
+                </template>
+                <template v-if="row.status === '確認待辦'">
+                  <el-select v-model="priority" placeholder="選擇優先級" size="small" class="priority-select">
+                    <el-option label="高" value="high" />
+                    <el-option label="低" value="low" />
+                  </el-select>
+                  <el-button @click="confirmTodo(row.id)" type="success" size="small">確認</el-button>
+                  <el-button @click="rejectTodo(row.id)" type="danger" size="small">拒絕</el-button>
+                </template>
+                <template v-if="row.status === '審閱待辦'">
+                  <el-button @click="approveTodo(row.id)" type="success" size="small">核准</el-button>
+                  <el-button @click="rejectReviewTodo(row.id)" type="danger" size="small">拒絕</el-button>
+                </template>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-col>
+    </el-row>
 
     <!-- 流程圖對話框 -->
     <el-dialog title="流程狀態" v-model="dialogVisible" width="80%">
@@ -215,8 +221,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
-    .label-wrapper {
-      text-align: right;
-      line-height: 40px; /* 與輸入框高度對齊 */
-    }
+.label-wrapper {
+  text-align: right;
+  line-height: 40px; /* 與輸入框高度對齊 */
+}
+
+/* 確保操作列的按鈕和下拉選單在同一行 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 按鈕和下拉選單之間的間距 */
+  flex-wrap: nowrap; /* 禁止換行 */
+}
+
+/* 調整下拉選單的寬度，避免過寬 */
+.priority-select {
+  width: 100px; /* 固定下拉選單寬度 */
+}
 </style>

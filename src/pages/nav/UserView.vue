@@ -6,66 +6,66 @@
     <!-- 新增使用者表單 -->
     <el-form :model="newUser" class="form-card">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">名字</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item :error="nameError" label-width="0">
             <el-input v-model="newUser.name" placeholder="請輸入名字" />
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">電子郵件</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item :error="emailError" label-width="0">
             <el-input v-model="newUser.email" placeholder="請輸入電子郵件" />
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">密碼</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item :error="passwordError" label-width="0">
             <el-input v-model="newUser.password" type="password" placeholder="請輸入密碼" />
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="8">
           <div class="label-wrapper">角色</div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-form-item :error="roleError" label-width="0">
             <el-select v-model="newUser.selectedRole" placeholder="選擇角色">
               <el-option v-for="role in roleOptions" :key="role.id" :label="role.name" :value="role.id" />
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="18">
-          <el-form-item class="button-item" label-width="0">
+        <el-col :span="16">
+          <el-form-item label-width="0" class="button-form-item">
             <el-button type="primary" @click="handleAddUser">新增使用者</el-button>
           </el-form-item>
         </el-col>
       </el-row>
     </el-form>
 
-    <!-- 使用者清單表格 -->
-    <el-table :data="users" class="table-card" border stripe>
-      <el-table-column type="index" label="#" min-width="50" />
-      <el-table-column prop="name" label="名字" min-width="200" />
-      <el-table-column prop="email" label="電子郵件" min-width="300" />
-    </el-table>
+    <!-- 使用者清單表格：左右各空 1 格，表格佔 22 格 -->
+    <el-row :gutter="20">
+      <el-col :span="22" :offset="1">
+        <el-table :data="users" class="table-card" border stripe>
+          <el-table-column type="index" label="#" min-width="50" />
+          <el-table-column prop="name" label="名字" min-width="200" />
+          <el-table-column prop="email" label="電子郵件" min-width="300" />
+        </el-table>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -170,8 +170,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-    .label-wrapper {
-      text-align: right;
-      line-height: 40px; /* 與輸入框高度對齊 */
-    }
+.label-wrapper {
+  text-align: right;
+  line-height: 40px; /* 與輸入框高度對齊 */
+}
 </style>

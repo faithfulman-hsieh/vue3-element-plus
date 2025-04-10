@@ -5,6 +5,12 @@
 //   --ep-color-primary: red;
 // }
 
+// 修正類名為 ep-form-item__content
+.ep-form-item.button-form-item .ep-form-item__content {
+  display: flex;
+  justify-content: flex-end;
+}
+
 body {
   font-family: Inter, system-ui, Avenir, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
