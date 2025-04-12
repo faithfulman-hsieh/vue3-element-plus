@@ -47,7 +47,7 @@
       </el-row>
     </el-form>
 
-    <!-- 待辦事項列表：左右各空 1 格，表格佔 22 格 -->
+    <!-- 待辦事項列表 -->
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
         <el-table :data="todos" class="table-card" border stripe>
@@ -90,24 +90,25 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import todoService from '~/api/todoService';
+import { todosApi } from '~/api/client';
+import type { Todo, TodoRequest } from '~/api/models';
 import BpmnViewer from '~/components/BpmnViewer.vue';
 
-const todos = ref([]);
-const newTodo = ref({ title: '', description: '', assignee: '' });
+const todos = ref<Todo[]>([]);
+const newTodo = ref<TodoRequest>({ title: '', description: '', assignee: '' });
 const priority = ref('high');
 const dialogVisible = ref(false);
-const currentBpmnData = ref(null);
+const currentBpmnData = ref<{ bpmnXml: string; currentTask: string } | null>(null);
 
 const fetchTodos = async () => {
-  try {
-    todos.value = await todoService.getAllTodos();
-  } catch (error) {
+  const response = await todosApi.getAllTodos();
+  if (response.data) {
+    todos.value = Array.isArray(response.data) ? response.data : [response.data]; // 修正單個 Todo
+  } else {
     ElMessage.error('取得待辦事項失敗');
-    console.error('取得待辦事項失敗:', error);
   }
 };
 
@@ -116,102 +117,93 @@ const addTodo = async () => {
     ElMessage.warning('請填寫所有欄位');
     return;
   }
-  try {
-    await todoService.createTodo(newTodo.value);
+  const response = await todosApi.createTodo({ todoRequest: newTodo.value });
+  if (response.data) {
     newTodo.value = { title: '', description: '', assignee: '' };
     fetchTodos();
     ElMessage.success('成功新增待辦事項');
-  } catch (error) {
+  } else {
     ElMessage.error('新增待辦事項失敗');
-    console.error('新增失敗:', error);
   }
 };
 
-const showProcessDiagram = async (todoId) => {
-  try {
-    const { bpmnXml, currentTask } = await todoService.getProcessDiagram(todoId);
-    console.log('Received BPMN XML:', bpmnXml);
-    console.log('Received Current Task:', currentTask);
-
-    currentBpmnData.value = { bpmnXml, currentTask };
+const showProcessDiagram = async (todoId: number) => {
+  const response = await todosApi.getProcessDiagram({ id: todoId });
+  if (response.data) {
+    // 假設後端返回 JSON 字串，需解析
+    const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+    currentBpmnData.value = { bpmnXml: data.bpmnXml, currentTask: data.currentTask };
     dialogVisible.value = true;
-  } catch (error) {
+  } else {
     ElMessage.error('取得流程圖失敗');
-    console.error('取得流程圖失敗:', error);
   }
 };
 
-const completeTodo = async (todoId) => {
-  try {
-    await todoService.completeTask(todoId, 'complete', priority.value);
+const completeTodo = async (todoId: number) => {
+  const response = await todosApi.completeTodo({ id: todoId, action: 'complete', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('待辦事項已完成');
-  } catch (error) {
+  } else {
     ElMessage.error('完成待辦事項失敗');
-    console.error('完成失敗:', error);
   }
 };
 
-const reassignTodo = async (todoId) => {
-  try {
-    await todoService.completeTask(todoId, 'reassign', priority.value);
+const reassignTodo = async (todoId: number) => {
+  const response = await todosApi.completeTodo({ id: todoId, action: 'reassign', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('待辦事項已重新分派');
-  } catch (error) {
+  } else {
     ElMessage.error('重新分派待辦事項失敗');
-    console.error('重新分派失敗:', error);
   }
 };
 
-const confirmTodo = async (todoId) => {
+const confirmTodo = async (todoId: number) => {
   if (!priority.value) {
     ElMessage.warning('請選擇優先級');
     return;
   }
-  try {
-    await todoService.completeTask(todoId, 'confirm', priority.value);
+  const response = await todosApi.completeTodo({ id: todoId, action: 'confirm', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('待辦事項已確認');
-  } catch (error) {
+  } else {
     ElMessage.error('確認待辦事項失敗');
-    console.error('確認失敗:', error);
   }
 };
 
-const rejectTodo = async (todoId) => {
+const rejectTodo = async (todoId: number) => {
   if (!priority.value) {
     ElMessage.warning('請選擇優先級');
     return;
   }
-  try {
-    await todoService.completeTask(todoId, 'reject', priority.value);
+  const response = await todosApi.completeTodo({ id: todoId, action: 'reject', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('待辦事項已拒絕');
-  } catch (error) {
+  } else {
     ElMessage.error('拒絕待辦事項失敗');
-    console.error('拒絕失敗:', error);
   }
 };
 
-const approveTodo = async (todoId) => {
-  try {
-    await todoService.completeTask(todoId, 'approve', priority.value);
+const approveTodo = async (todoId: number) => {
+  const response = await todosApi.completeTodo({ id: todoId, action: 'approve', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('待辦事項已核准');
-  } catch (error) {
+  } else {
     ElMessage.error('核准待辦事項失敗');
-    console.error('核准失敗:', error);
   }
 };
 
-const rejectReviewTodo = async (todoId) => {
-  try {
-    await todoService.completeTask(todoId, 'reject', priority.value);
+const rejectReviewTodo = async (todoId: number) => {
+  const response = await todosApi.completeTodo({ id: todoId, action: 'reject', priority: priority.value });
+  if (response.status === 200) {
     fetchTodos();
     ElMessage.success('審閱待辦事項已拒絕');
-  } catch (error) {
+  } else {
     ElMessage.error('拒絕審閱待辦事項失敗');
-    console.error('拒絕失敗:', error);
   }
 };
 
@@ -223,19 +215,17 @@ onMounted(() => {
 <style scoped>
 .label-wrapper {
   text-align: right;
-  line-height: 40px; /* 與輸入框高度對齊 */
+  line-height: 40px;
 }
 
-/* 確保操作列的按鈕和下拉選單在同一行 */
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 8px; /* 按鈕和下拉選單之間的間距 */
-  flex-wrap: nowrap; /* 禁止換行 */
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
-/* 調整下拉選單的寬度，避免過寬 */
 .priority-select {
-  width: 100px; /* 固定下拉選單寬度 */
+  width: 100px;
 }
 </style>

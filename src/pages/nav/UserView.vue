@@ -56,7 +56,7 @@
       </el-row>
     </el-form>
 
-    <!-- 使用者清單表格：左右各空 1 格，表格佔 22 格 -->
+    <!-- 使用者清單表格 -->
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
         <el-table :data="users" class="table-card" border stripe>
@@ -69,19 +69,20 @@
   </div>
 </template>
 
+<!-- src/views/UserView.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElNotification } from 'element-plus';
-import { addUser } from '~/api/userService';
+import { userApi } from '~/api/client';
+import type { User, Role } from '~/api/models';
 
-// 新增使用者表單資料
 const newUser = ref({
   name: '',
   email: '',
   password: '',
   selectedRole: null as number | null,
 });
-const roleOptions = ref([
+const roleOptions = ref<Role[]>([
   { id: 1, name: 'ADMIN' },
   { id: 2, name: 'USER' },
 ]);
@@ -89,28 +90,21 @@ const nameError = ref('');
 const emailError = ref('');
 const passwordError = ref('');
 const roleError = ref('');
+const users = ref<User[]>([]);
 
-// 使用者清單資料
-const users = ref([
-  { name: 'user', email: 'user@example.com' },
-  { name: 'admin', email: 'admin@example.com' },
-]);
-
-// 驗證電子郵件格式
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-// 處理新增使用者
 const handleAddUser = async () => {
   nameError.value = '';
   emailError.value = '';
   passwordError.value = '';
   roleError.value = '';
 
-  if (newUser.value.name === '') {
+  if (!newUser.value.name) {
     nameError.value = '名字不能為空';
     return;
   }
-  if (newUser.value.email === '') {
+  if (!newUser.value.email) {
     emailError.value = '電子郵件不能為空';
     return;
   }
@@ -118,7 +112,7 @@ const handleAddUser = async () => {
     emailError.value = '電子郵件格式不正確';
     return;
   }
-  if (newUser.value.password === '') {
+  if (!newUser.value.password) {
     passwordError.value = '密碼不能為空';
     return;
   }
@@ -127,51 +121,70 @@ const handleAddUser = async () => {
     return;
   }
 
+  const role = roleOptions.value.find((r) => r.id === newUser.value.selectedRole);
+  if (!role) {
+    roleError.value = '無效的角色';
+    return;
+  }
+
+  const user: User = {
+    name: newUser.value.name,
+    email: newUser.value.email,
+    password: newUser.value.password,
+    roles: [role],
+  };
+
   try {
-    const role = roleOptions.value.find((r) => r.id === newUser.value.selectedRole);
-    if (!role) {
-      roleError.value = '無效的角色';
+    const token = localStorage.getItem('jwtToken');
+    if (!token) {
+      ElNotification({
+        title: '錯誤',
+        message: '請先登入',
+        type: 'error',
+      });
       return;
     }
 
-    const response = await addUser(newUser.value.name, newUser.value.email, newUser.value.password, [role]);
-
-    if (response.status === 200) {
+    const response = await userApi.addUser({ user });
+    if (response.data) {
       ElNotification({
         title: '成功',
         message: '使用者增加成功',
         type: 'success',
       });
-      users.value.push({
-        name: newUser.value.name,
-        email: newUser.value.email,
-      });
+      fetchUsers();
       newUser.value = { name: '', email: '', password: '', selectedRole: null };
-    } else {
-      ElNotification({
-        title: '錯誤',
-        message: '使用者增加失敗',
-        type: 'error',
-      });
     }
-  } catch (error) {
+  } catch (error: any) {
     ElNotification({
-      title: '系統異常',
-      message: '系統異常，請稍後再試',
+      title: '錯誤',
+      message: error.response?.status === 403 ? '無權新增使用者，請確認是否已登入或有足夠權限' : '使用者增加失敗',
       type: 'error',
     });
   }
 };
 
-// 頁面載入時獲取使用者清單（可選）
-onMounted(() => {
-  // 這裡可以從後端獲取資料
-});
+const fetchUsers = async () => {
+  try {
+    const response = await userApi.getUsers();
+    if (response.data) {
+      users.value = Array.isArray(response.data) ? response.data : [];
+    }
+  } catch (error) {
+    ElNotification({
+      title: '錯誤',
+      message: '獲取用戶列表失敗',
+      type: 'error',
+    });
+  }
+};
+
+onMounted(fetchUsers);
 </script>
 
 <style scoped>
 .label-wrapper {
   text-align: right;
-  line-height: 40px; /* 與輸入框高度對齊 */
+  line-height: 40px;
 }
 </style>

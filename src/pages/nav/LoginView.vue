@@ -1,4 +1,4 @@
-<!-- src/views/Login.vue -->
+<!-- src/views/LoginView.vue -->
 <template>
   <div class="page-container">
     <h1 class="page-title">登入</h1>
@@ -34,14 +34,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '~/stores/userStore';
-import { loginUser } from '~/api/userService';
+import { authApi } from '~/api/client'; // 使用生成的 API
 import { ElNotification } from 'element-plus';
+import type { AuthRequest } from '~/api/models'; // 引入生成的模型
 
-const form = ref({
+const form = ref<AuthRequest>({
   username: '',
   password: '',
 });
@@ -49,19 +50,17 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const handleSubmit = async () => {
-  try {
-    const response = await loginUser(form.value.username, form.value.password);
-    if (response.data) {
-      localStorage.setItem('jwtToken', response.data);
-      userStore.login();
-      ElNotification({
-        title: '成功',
-        message: '登入成功',
-        type: 'success',
-      });
-      router.push('/');
-    }
-  } catch (error) {
+  const response = await authApi.login({ authRequest: form.value });
+  if (response.data) {
+    localStorage.setItem('jwtToken', response.data);
+    userStore.login();
+    ElNotification({
+      title: '成功',
+      message: '登入成功',
+      type: 'success',
+    });
+    router.push('/');
+  } else {
     ElNotification({
       title: '登入失敗',
       message: '請檢查您的帳號或密碼',
