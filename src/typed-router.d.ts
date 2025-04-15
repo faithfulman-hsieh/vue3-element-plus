@@ -23,6 +23,12 @@ declare module 'vue-router/auto-routes' {
     '/nav/HelloWorld': RouteRecordInfo<'/nav/HelloWorld', '/nav/HelloWorld', Record<never, never>, Record<never, never>>,
     '/nav/HomeView': RouteRecordInfo<'/nav/HomeView', '/nav/HomeView', Record<never, never>, Record<never, never>>,
     '/nav/LoginView': RouteRecordInfo<'/nav/LoginView', '/nav/LoginView', Record<never, never>, Record<never, never>>,
+    '/nav/ProcessAdjustView': RouteRecordInfo<'/nav/ProcessAdjustView', '/nav/ProcessAdjustView', Record<never, never>, Record<never, never>>,
+    '/nav/ProcessManageView': RouteRecordInfo<'/nav/ProcessManageView', '/nav/ProcessManageView', Record<never, never>, Record<never, never>>,
+    '/nav/ProcessStartView': RouteRecordInfo<'/nav/ProcessStartView', '/nav/ProcessStartView', Record<never, never>, Record<never, never>>,
+    '/nav/ProcessStatusView': RouteRecordInfo<'/nav/ProcessStatusView', '/nav/ProcessStatusView', Record<never, never>, Record<never, never>>,
+    '/nav/RoleManageView': RouteRecordInfo<'/nav/RoleManageView', '/nav/RoleManageView', Record<never, never>, Record<never, never>>,
+    '/nav/TaskView': RouteRecordInfo<'/nav/TaskView', '/nav/TaskView', Record<never, never>, Record<never, never>>,
     '/nav/TodoView': RouteRecordInfo<'/nav/TodoView', '/nav/TodoView', Record<never, never>, Record<never, never>>,
     '/nav/UserView': RouteRecordInfo<'/nav/UserView', '/nav/UserView', Record<never, never>, Record<never, never>>,
   }
