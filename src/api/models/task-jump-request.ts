@@ -14,8 +14,17 @@
 
 
 
-export * from './api/authentication-api';
-export * from './api/todo-api';
-export * from './api/user-api';
-export * from './api/process-api';
-export * from './api/task-api';
+/**
+ * Request object for jumping to a specific task
+ * @export
+ * @interface TaskJumpRequest
+ */
+export interface TaskJumpRequest {
+    /**
+     * ID of the target task
+     * @type {string}
+     * @memberof TaskJumpRequest
+     */
+    'targetTaskId': string;
+}
+

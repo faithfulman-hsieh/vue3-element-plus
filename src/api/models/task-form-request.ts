@@ -14,8 +14,17 @@
 
 
 
-export * from './api/authentication-api';
-export * from './api/todo-api';
-export * from './api/user-api';
-export * from './api/process-api';
-export * from './api/task-api';
+/**
+ * Request object for submitting task form data
+ * @export
+ * @interface TaskFormRequest
+ */
+export interface TaskFormRequest {
+    /**
+     * Form data as key-value pairs
+     * @type {{ [key: string]: object; }}
+     * @memberof TaskFormRequest
+     */
+    'formData': { [key: string]: object; };
+}
+

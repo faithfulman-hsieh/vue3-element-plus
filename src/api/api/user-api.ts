@@ -1,3 +1,4 @@
+// src/api/api/user-api.ts
 /* tslint:disable */
 /* eslint-disable */
 /**
@@ -12,7 +13,6 @@
  * Do not edit the class manually.
  */
 
-
 import type { Configuration } from '../configuration';
 import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
 import globalAxios from 'axios';
@@ -23,6 +23,7 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
 import type { User } from '../models';
+
 /**
  * UserAPI - axios parameter creator
  * @export
@@ -51,8 +52,6 @@ export const UserAPIAxiosParamCreator = function (configuration?: Configuration)
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
-
-    
             localVarHeaderParameter['Content-Type'] = 'application/json';
 
             setSearchParams(localVarUrlObj, localVarQueryParameter);
@@ -84,8 +83,6 @@ export const UserAPIAxiosParamCreator = function (configuration?: Configuration)
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
-
-    
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
@@ -124,7 +121,7 @@ export const UserAPIFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getUsers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<User>> {
+        async getUsers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<User[]>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getUsers(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['UserAPI.getUsers']?.[localVarOperationServerIndex]?.url;
@@ -156,7 +153,7 @@ export const UserAPIFactory = function (configuration?: Configuration, basePath?
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getUsers(options?: RawAxiosRequestConfig): AxiosPromise<User> {
+        getUsers(options?: RawAxiosRequestConfig): AxiosPromise<User[]> {
             return localVarFp.getUsers(options).then((request) => request(axios, basePath));
         },
     };
@@ -206,4 +203,3 @@ export class UserAPI extends BaseAPI {
         return UserAPIFp(this.configuration).getUsers(options).then((request) => request(this.axios, this.basePath));
     }
 }
-

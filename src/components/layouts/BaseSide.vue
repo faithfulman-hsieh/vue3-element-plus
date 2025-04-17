@@ -39,25 +39,17 @@
             <el-icon><Folder /></el-icon>
             <template #title>流程定義管理</template>
         </el-menu-item>
-        <el-menu-item index="/tasks">
-            <el-icon><Document /></el-icon>
-            <template #title>我的待辦任務</template>
-        </el-menu-item>
-        <el-menu-item index="/process-start">
-            <el-icon><CaretRight /></el-icon> <!-- 替換 Play -->
-            <template #title>啟動流程</template>
-        </el-menu-item>
         <el-menu-item index="/process-status">
             <el-icon><Search /></el-icon>
             <template #title>流程狀態查詢</template>
         </el-menu-item>
         <el-menu-item index="/process-adjust">
             <el-icon><Operation /></el-icon>
-            <template #title>動態流程調整</template>
+            <template #title>流程動態調整</template>
         </el-menu-item>
-        <el-menu-item index="/role-manage">
-            <el-icon><User /></el-icon>
-            <template #title>角色與權限管理</template>
+        <el-menu-item index="/tasks">
+            <el-icon><Document /></el-icon>
+            <template #title>我的待辦任務</template>
         </el-menu-item>
         <el-menu-item index="/helloWorld">
             <el-icon><Setting /></el-icon>

@@ -14,8 +14,17 @@
 
 
 
-export * from './api/authentication-api';
-export * from './api/todo-api';
-export * from './api/user-api';
-export * from './api/process-api';
-export * from './api/task-api';
+/**
+ * Request object for reassigning a task
+ * @export
+ * @interface TaskReassignRequest
+ */
+export interface TaskReassignRequest {
+    /**
+     * Username of the new assignee
+     * @type {string}
+     * @memberof TaskReassignRequest
+     */
+    'assignee': string;
+}
+

@@ -4,6 +4,9 @@ import { AuthenticationAPI } from './api/authentication-api';
 import { UserAPI } from './api/user-api';
 import { TodoAPI } from './api/todo-api';
 
+import { ProcessAPI } from './api/process-api';
+import { TaskAPI } from './api/task-api';
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 const getToken = () => {
@@ -23,3 +26,6 @@ export const apiConfig = new Configuration({
 export const authApi = new AuthenticationAPI(apiConfig);
 export const userApi = new UserAPI(apiConfig);
 export const todosApi = new TodoAPI(apiConfig);
+
+export const processApi = new ProcessAPI(apiConfig);
+export const taskApi = new TaskAPI(apiConfig);

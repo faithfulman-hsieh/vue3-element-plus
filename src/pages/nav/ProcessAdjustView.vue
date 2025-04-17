@@ -1,7 +1,7 @@
 <!-- src/pages/nav/ProcessAdjustView.vue -->
 <template>
     <div class="page-container">
-        <h1 class="page-title">動態流程調整</h1>
+        <h1 class="page-title">流程動態調整</h1>
 
         <!-- 篩選 -->
         <el-form class="form-card">

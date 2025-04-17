@@ -14,8 +14,17 @@
 
 
 
-export * from './api/authentication-api';
-export * from './api/todo-api';
-export * from './api/user-api';
-export * from './api/process-api';
-export * from './api/task-api';
+/**
+ * Request object for updating user roles
+ * @export
+ * @interface RoleRequest
+ */
+export interface RoleRequest {
+    /**
+     * List of role names
+     * @type {Array<string>}
+     * @memberof RoleRequest
+     */
+    'roles': Array<string>;
+}
+

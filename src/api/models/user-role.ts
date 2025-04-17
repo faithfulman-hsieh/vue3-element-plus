@@ -14,8 +14,23 @@
 
 
 
-export * from './api/authentication-api';
-export * from './api/todo-api';
-export * from './api/user-api';
-export * from './api/process-api';
-export * from './api/task-api';
+/**
+ * 
+ * @export
+ * @interface UserRole
+ */
+export interface UserRole {
+    /**
+     * 
+     * @type {string}
+     * @memberof UserRole
+     */
+    'username'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof UserRole
+     */
+    'roles'?: string;
+}
+
