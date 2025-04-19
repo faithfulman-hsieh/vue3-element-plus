@@ -1,4 +1,6 @@
-/* tslint:disable */
+
+/* src/api/api.ts
+tslint:disable */
 /* eslint-disable */
 /**
  * OpenAPI definition

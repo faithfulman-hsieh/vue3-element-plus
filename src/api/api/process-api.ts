@@ -3,9 +3,7 @@ import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
 import globalAxios from 'axios';
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
-import type { Process } from '../models';
-import type { ProcessRequest } from '../models';
-import type { FormField } from '../models';
+import type { Process, ProcessRequest, FormField, FlowNode, User } from '../models';
 
 export const ProcessAPIAxiosParamCreator = function (configuration?: Configuration) {
     return {
@@ -191,7 +189,6 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
 
             localVarHeaderParameter['Content-Type'] = 'application/json';
 
-            // 確保 variables 被正確序列化為 JSON
             const serializedRequest = {
                 processDefinitionId: processRequest.processDefinitionId,
                 variables: processRequest.variables || {}
@@ -224,6 +221,104 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        getUsers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/process/users`;
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        getFlowNodes: async (processInstanceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('getFlowNodes', 'processInstanceId', processInstanceId);
+            const localVarPath = `/api/process/instances/{processInstanceId}/nodes`
+                .replace(`{${"processInstanceId"}}`, encodeURIComponent(String(processInstanceId)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        reassignTask: async (processInstanceId: string, newAssignee: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('reassignTask', 'processInstanceId', processInstanceId);
+            assertParamExists('reassignTask', 'newAssignee', newAssignee);
+            const localVarPath = `/api/process/instances/{processInstanceId}/reassign`
+                .replace(`{${"processInstanceId"}}`, encodeURIComponent(String(processInstanceId)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+            localVarRequestOptions.data = JSON.stringify({ newAssignee });
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        jumpToNode: async (processInstanceId: string, targetNode: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('jumpToNode', 'processInstanceId', processInstanceId);
+            assertParamExists('jumpToNode', 'targetNode', targetNode);
+            const localVarPath = `/api/process/instances/{processInstanceId}/jump`
+                .replace(`{${"processInstanceId"}}`, encodeURIComponent(String(processInstanceId)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+            localVarRequestOptions.data = JSON.stringify({ targetNode });
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -290,6 +385,30 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.toggleProcessStatus']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        async getUsers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<User[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getUsers(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getUsers']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        async getFlowNodes(processInstanceId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<FlowNode[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getFlowNodes(processInstanceId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getFlowNodes']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        async reassignTask(processInstanceId: string, newAssignee: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.reassignTask(processInstanceId, newAssignee, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.reassignTask']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        async jumpToNode(processInstanceId: string, targetNode: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.jumpToNode(processInstanceId, targetNode, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.jumpToNode']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     };
 };
 
@@ -323,6 +442,18 @@ export const ProcessAPIFactory = function (configuration?: Configuration, basePa
         toggleProcessStatus(requestParameters: ProcessAPIToggleProcessStatusRequest, options?: RawAxiosRequestConfig): AxiosPromise<Process> {
             return localVarFp.toggleProcessStatus(requestParameters.id, options).then((request) => request(axios, basePath));
         },
+        getUsers(options?: RawAxiosRequestConfig): AxiosPromise<User[]> {
+            return localVarFp.getUsers(options).then((request) => request(axios, basePath));
+        },
+        getFlowNodes(requestParameters: ProcessAPIGetFlowNodesRequest, options?: RawAxiosRequestConfig): AxiosPromise<FlowNode[]> {
+            return localVarFp.getFlowNodes(requestParameters.processInstanceId, options).then((request) => request(axios, basePath));
+        },
+        reassignTask(requestParameters: ProcessAPIReassignTaskRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.reassignTask(requestParameters.processInstanceId, requestParameters.newAssignee, options).then((request) => request(axios, basePath));
+        },
+        jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -352,6 +483,20 @@ export interface ProcessAPIStartProcessRequest {
 
 export interface ProcessAPIToggleProcessStatusRequest {
     readonly id: string;
+}
+
+export interface ProcessAPIGetFlowNodesRequest {
+    readonly processInstanceId: string;
+}
+
+export interface ProcessAPIReassignTaskRequest {
+    readonly processInstanceId: string;
+    readonly newAssignee: string;
+}
+
+export interface ProcessAPIJumpToNodeRequest {
+    readonly processInstanceId: string;
+    readonly targetNode: string;
 }
 
 export class ProcessAPI extends BaseAPI {
@@ -390,6 +535,22 @@ export class ProcessAPI extends BaseAPI {
     public toggleProcessStatus(requestParameters: ProcessAPIToggleProcessStatusRequest, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).toggleProcessStatus(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
+
+    public getUsers(options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).getUsers(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    public getFlowNodes(requestParameters: ProcessAPIGetFlowNodesRequest, options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).getFlowNodes(requestParameters.processInstanceId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    public reassignTask(requestParameters: ProcessAPIReassignTaskRequest, options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).reassignTask(requestParameters.processInstanceId, requestParameters.newAssignee, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    public jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(this.axios, this.basePath));
+    }
 }
 
 export interface FormField {
@@ -397,4 +558,14 @@ export interface FormField {
     label: string;
     type: 'text' | 'select';
     options?: { label: string; value: string }[];
+}
+
+export interface FlowNode {
+    id: string;
+    name: string;
+}
+
+export interface User {
+    label: string;
+    value: string;
 }
