@@ -2,7 +2,6 @@
   <div class="page-container">
     <h1 class="page-title">流程定義管理</h1>
 
-    <!-- 上傳新流程 -->
     <el-form :model="newProcess" class="form-card">
       <el-row :gutter="20">
         <el-col :span="8">
@@ -47,7 +46,6 @@
       </el-row>
     </el-form>
 
-    <!-- 流程定義列表 -->
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
         <el-table :data="processes" class="table-card" border stripe :loading="loading">
@@ -75,7 +73,7 @@
                 <el-button
                   type="primary"
                   size="small"
-                  @click="showStartProcessDialog(row.processDefinitionId)"
+                  @click="showStartProcessDialog(row.id)"
                   :disabled="row.status !== 'active' || loading"
                 >
                   啟動流程
@@ -87,59 +85,32 @@
       </el-col>
     </el-row>
 
-    <!-- 流程圖對話框 -->
     <el-dialog title="流程圖" v-model="dialogVisible" width="80%">
       <bpmn-viewer :bpmnXml="currentBpmnData?.bpmnXml" :currentTask="currentBpmnData?.currentTask" />
     </el-dialog>
 
-    <!-- 啟動流程對話框 -->
-    <el-dialog title="啟動流程" v-model="startDialogVisible" width="50%">
-      <el-form :model="startForm" class="form-card">
-        <el-row v-for="field in formFields" :key="field.key" :gutter="20">
-          <el-col :span="8">
-            <div class="label-wrapper">{{ field.label }}</div>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :prop="field.key" label-width="0">
-              <el-input
-                v-if="field.type === 'text'"
-                v-model="startForm.variables[field.key]"
-                :placeholder="'輸入' + field.label"
-                :disabled="loading"
-              />
-              <el-select
-                v-if="field.type === 'select'"
-                v-model="startForm.variables[field.key]"
-                :placeholder="'選擇' + field.label"
-                :disabled="loading"
-              >
-                <el-option
-                  v-for="option in field.options"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="6"></el-col>
-        </el-row>
-        <el-row :gutter="20" v-if="formFields.length === 0">
-          <el-col :span="16">
-            <p>此流程無需填寫表單，直接點擊確認即可啟動。</p>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="16">
-            <el-form-item label-width="0" class="button-form-item">
-              <el-button type="primary" @click="startProcess" :disabled="loading">
-                確認啟動
-              </el-button>
-              <el-button @click="startDialogVisible = false" :disabled="loading">取消</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
+    <el-dialog 
+      :title="'啟動流程' + (currentProcessName ? '：' + currentProcessName : '')" 
+      v-model="startDialogVisible" 
+      width="50%"
+      destroy-on-close
+    >
+      <div v-loading="formLoading">
+        <DynamicForm 
+          v-if="formFields.length > 0"
+          :fields="formFields"
+          @submit="handleDynamicSubmit"
+          @cancel="startDialogVisible = false"
+        />
+        
+        <div v-else class="empty-form-state">
+           <p>此流程無需填寫表單，直接點擊確認即可啟動。</p>
+           <el-row type="flex" justify="end" style="margin-top: 20px;">
+             <el-button type="primary" @click="handleDynamicSubmit({})">確認啟動</el-button>
+             <el-button @click="startDialogVisible = false">取消</el-button>
+           </el-row>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -147,35 +118,37 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import BpmnViewer from '~/components/BpmnViewer.vue';
-import { processApi } from '~/api/client';
-import type { ProcessDefinition, ProcessRequest, FormField } from '~/api/models';
-import { useUserStore } from '~/stores/userStore';
+import BpmnViewer from '../../components/BpmnViewer.vue';
+import DynamicForm from '../../components/DynamicForm.vue'; // 🔥 引入動態表單
+import { processApi } from '../../api/client';
+import type { ProcessDefinition, ProcessRequest, FormField } from '../../api/models';
+import { useUserStore } from '../../stores/userStore';
 import { useRouter } from 'vue-router';
-
-interface StartForm {
-  processDefinitionId: string;
-  variables: { [key: string]: string };
-}
 
 const newProcess = ref({ name: '', file: null as File | null });
 const processes = ref<ProcessDefinition[]>([]);
 const dialogVisible = ref(false);
 const startDialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | null } | null>(null);
-const startForm = ref<StartForm>({ processDefinitionId: '', variables: {} });
+
+// 啟動流程相關
+const currentProcessId = ref('');
+const currentProcessName = ref('');
 const formFields = ref<FormField[]>([]);
+const formLoading = ref(false);
+
 const loading = ref(false);
 const userStore = useUserStore();
 const router = useRouter();
 
+// 1. 獲取列表
 const fetchProcesses = async () => {
   try {
     loading.value = true;
     const response = await processApi.getAllDefinitions();
     processes.value = response.data || [];
     if (!processes.value.length) {
-      ElMessage.warning('無可用流程定義');
+      // ElMessage.warning('無可用流程定義'); // 拿掉這個避免一直彈
     }
   } catch (error: any) {
     console.error('Failed to fetch processes:', error);
@@ -189,6 +162,7 @@ const handleFileChange = (file: any) => {
   newProcess.value.file = file.raw;
 };
 
+// 2. 部署流程
 const deployProcess = async () => {
   if (!newProcess.value.name || !newProcess.value.file) {
     ElMessage.warning('請填寫流程名稱並選擇 BPMN 文件');
@@ -201,14 +175,14 @@ const deployProcess = async () => {
       name: newProcess.value.name,
       file: newProcess.value.file,
     };
-    const response = await processApi.deployProcess({ request });
+    // 根據您原本的寫法，這裡包了一層 { request }
+    const response = await processApi.deployProcess({ request }); 
     ElMessage.success(`流程部署成功，ID: ${response.data.id}`);
     newProcess.value = { name: '', file: null };
     await fetchProcesses();
   } catch (error: any) {
     console.error('Failed to deploy process:', error);
-    const errorMessage = error.response?.data?.message || '流程部署失敗，請檢查文件格式或稍後重試';
-    ElMessage.error(errorMessage);
+    ElMessage.error(error.response?.data?.message || '流程部署失敗');
   } finally {
     loading.value = false;
   }
@@ -228,8 +202,7 @@ const showProcessDiagram = async (id: string) => {
     };
     dialogVisible.value = true;
   } catch (error: any) {
-    console.error('Failed to fetch process diagram:', error);
-    ElMessage.error(error.response?.data?.message || '獲取流程圖失敗，請稍後重試');
+    ElMessage.error('獲取流程圖失敗');
   } finally {
     loading.value = false;
   }
@@ -242,61 +215,63 @@ const toggleProcessStatus = async (id: string) => {
     ElMessage.success(`流程已${response.data.status === 'active' ? '啟用' : '停用'}`);
     await fetchProcesses();
   } catch (error: any) {
-    console.error('Failed to toggle process status:', error);
-    ElMessage.error(error.response?.data?.message || '狀態切換失敗，請稍後重試');
+    ElMessage.error('狀態切換失敗');
   } finally {
     loading.value = false;
   }
 };
 
+// 🔥 3. 點擊「啟動流程」按鈕
 const showStartProcessDialog = async (processDefinitionId: string) => {
+  // 修正：改回使用 isLoggedIn 判斷
   if (!userStore.isLoggedIn) {
     ElMessage.error('請先登錄');
     router.push('/login');
     return;
   }
 
-  startForm.value = { processDefinitionId, variables: {} };
+  currentProcessId.value = processDefinitionId;
+  const target = processes.value.find(p => p.id === processDefinitionId || p.processDefinitionId === processDefinitionId);
+  currentProcessName.value = target?.name || '';
+
   formFields.value = [];
+  formLoading.value = true;
+  startDialogVisible.value = true; // 先打開 Dialog 讓使用者知道有反應
 
   try {
-    loading.value = true;
     const response = await processApi.getProcessFormFields({ id: processDefinitionId });
     formFields.value = response.data || [];
-    formFields.value.forEach(field => {
-      startForm.value.variables[field.key] = '';
-    });
-    startDialogVisible.value = true;
   } catch (error: any) {
     console.error('Failed to fetch form fields:', error);
-    ElMessage.error(error.response?.data?.message || '獲取表單字段失敗，請稍後重試');
+    ElMessage.error('獲取表單字段失敗');
   } finally {
-    loading.value = false;
+    formLoading.value = false;
   }
 };
 
-const startProcess = async () => {
-  for (const field of formFields.value) {
-    if (!startForm.value.variables[field.key]?.trim()) {
-      ElMessage.warning(`請填寫${field.label}`);
-      return;
-    }
-  }
-
+// 🔥 4. 接收動態表單的 Submit 事件
+const handleDynamicSubmit = async (formData: any) => {
   try {
     loading.value = true;
+    
+    // 組裝 Request
     const processRequest: ProcessRequest = {
-      processDefinitionId: startForm.value.processDefinitionId,
-      variables: startForm.value.variables,
+      processDefinitionId: currentProcessId.value,
+      variables: formData,
     };
+    
+    // 呼叫原本的 API
     const response = await processApi.startProcess({ processRequest });
+    
     ElMessage.success(`流程啟動成功，ID: ${response.data.id}`);
     startDialogVisible.value = false;
-    startForm.value = { processDefinitionId: '', variables: {} };
+    
+    // 清空暫存
+    currentProcessId.value = '';
     formFields.value = [];
   } catch (error: any) {
     console.error('Failed to start process:', error);
-    ElMessage.error(error.response?.data?.message || '流程啟動失敗，請稍後重試');
+    ElMessage.error(error.response?.data?.message || '流程啟動失敗');
   } finally {
     loading.value = false;
   }
@@ -308,6 +283,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 完全保留您原本的 CSS */
 .label-wrapper {
   text-align: right;
   line-height: 40px;
@@ -321,5 +297,9 @@ onMounted(() => {
 .file-name {
   margin-left: 10px;
   color: #606266;
+}
+.empty-form-state {
+  text-align: center;
+  padding: 20px 0;
 }
 </style>

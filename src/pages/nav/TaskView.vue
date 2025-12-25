@@ -1,204 +1,232 @@
 <template>
-    <div class="page-container">
-        <h1 class="page-title">我的待辦任務</h1>
+  <div class="page-container">
+    <h1 class="page-title">我的待辦任務</h1>
 
-        <!-- 篩選 -->
-        <el-form class="form-card">
-            <el-row :gutter="20">
-                <el-col :span="8">
-                    <div class="label-wrapper">任務名稱</div>
-                </el-col>
-                <el-col :span="8">
-                    <el-form-item prop="searchName" label-width="0">
-                        <el-input v-model="searchName" placeholder="輸入任務名稱" />
-                    </el-form-item>
-                </el-col>
-                <el-col :span="6"></el-col>
-            </el-row>
-            <el-row :gutter="20">
-                <el-col :span="16">
-                    <el-form-item label-width="0" class="button-form-item">
-                        <el-button type="primary" @click="fetchTasks">查詢</el-button>
-                    </el-form-item>
-                </el-col>
-            </el-row>
-        </el-form>
+    <el-table 
+      :data="tableData" 
+      class="table-card" 
+      border 
+      stripe 
+      v-loading="loading"
+    >
+      <el-table-column prop="name" label="當前任務" min-width="180" />
 
-        <!-- 任務列表 -->
-        <el-row :gutter="20">
-            <el-col :span="22" :offset="1">
-                <el-table :data="tasks" class="table-card" border stripe>
-                    <el-table-column prop="name" label="任務名稱" min-width="100" />
-                    <el-table-column prop="processName" label="流程名稱" min-width="100" />
-                    <el-table-column prop="assignee" label="執行者" min-width="60" />
-                    <el-table-column prop="createTime" label="創建時間" min-width="100" />
-                    <el-table-column label="操作" min-width="200">
-                        <template #default="{ row }">
-                            <div class="action-buttons">
-                                <el-button type="info" size="small" @click="showTaskForm(row.id)">
-                                    查看表單
-                                </el-button>
-                                <el-button type="warning" size="small" @click="showReassignDialog(row.id)">
-                                    重新分配
-                                </el-button>
-                            </div>
-                        </template>
-                    </el-table-column>
-                </el-table>
-            </el-col>
-        </el-row>
+      <el-table-column prop="processName" label="流程名稱" min-width="150">
+        <template #default="{ row }">
+          <el-tag type="info">{{ row.processName }}</el-tag>
+        </template>
+      </el-table-column>
 
-        <!-- 動態表單對話框 -->
-        <el-dialog title="任務表單" v-model="formVisible" width="50%">
-            <el-form :model="taskForm" class="form-card">
-                <el-row v-for="field in taskFormFields" :key="field.key" :gutter="20">
-                    <el-col :span="8">
-                        <div class="label-wrapper">{{ field.label }}</div>
-                    </el-col>
-                    <el-col :span="8">
-                        <el-form-item :prop="field.key" label-width="0">
-                            <el-input v-if="field.type === 'text'" v-model="taskForm[field.key]" :placeholder="'輸入' + field.label" />
-                            <el-select v-if="field.type === 'select'" v-model="taskForm[field.key]" :placeholder="'選擇' + field.label">
-                                <el-option v-for="option in field.options" :key="option.value" :label="option.label" :value="option.value" />
-                            </el-select>
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="6"></el-col>
-                </el-row>
-                <el-row :gutter="20">
-                    <el-col :span="16">
-                        <el-form-item label-width="0" class="button-form-item">
-                            <el-button type="primary" @click="submitTaskForm">提交</el-button>
-                        </el-form-item>
-                    </el-col>
-                </el-row>
-            </el-form>
-        </el-dialog>
+      <el-table-column prop="createTime" label="收到時間" min-width="180" />
 
-        <!-- 重新分配對話框 -->
-        <el-dialog title="重新分配任務" v-model="reassignVisible" width="30%">
-            <el-form :model="reassignForm" class="form-card">
-                <el-row :gutter="20">
-                    <el-col :span="8">
-                        <div class="label-wrapper">新執行者</div>
-                    </el-col>
-                    <el-col :span="8">
-                        <el-form-item prop="assignee" label-width="0">
-                            <el-select v-model="reassignForm.assignee" placeholder="選擇用戶">
-                                <el-option v-for="user in users" :key="user.value" :label="user.label" :value="user.value" />
-                            </el-select>
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="6"></el-col>
-                </el-row>
-                <el-row :gutter="20">
-                    <el-col :span="16">
-                        <el-form-item label-width="0" class="button-form-item">
-                            <el-button type="primary" @click="reassignTask">確認</el-button>
-                        </el-form-item>
-                    </el-col>
-                </el-row>
-            </el-form>
-        </el-dialog>
-    </div>
+      <el-table-column label="操作" width="180" fixed="right" align="center">
+        <template #default="{ row }">
+          <div class="action-buttons">
+            <el-button type="primary" size="small" @click="handleProcess(row)">
+              處理
+            </el-button>
+            
+            <el-button type="info" size="small" @click="showStatus(row)">
+              查看狀態
+            </el-button>
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog
+      v-model="dialogVisible"
+      :title="currentTask?.name || '處理任務'"
+      width="600px"
+      destroy-on-close
+      :close-on-click-modal="false"
+    >
+      <div v-loading="formLoading">
+        <DynamicForm 
+          v-if="formFields.length > 0"
+          :fields="formFields"
+          @submit="submitTask"
+          @cancel="dialogVisible = false"
+        />
+        
+        <div v-else class="empty-state">
+          <p>此任務僅需確認即可完成。</p>
+          <div style="text-align: right; margin-top: 20px;">
+            <el-button @click="dialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitTask({})">確認完成</el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog 
+      v-model="bpmnDialogVisible" 
+      title="流程狀態" 
+      width="80%"
+      destroy-on-close
+    >
+      <BpmnViewer 
+        v-if="currentBpmnData"
+        :bpmnXml="currentBpmnData.bpmnXml" 
+        :currentTask="currentBpmnData.currentTask" 
+      />
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
-import { taskApi } from '~/api/client';
-import type { Task } from '~/api/models';
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '../../stores/userStore'
+import { taskApi, processApi } from '../../api/client' // 引入 processApi
+import DynamicForm from '../../components/DynamicForm.vue'
+import BpmnViewer from '../../components/BpmnViewer.vue' // 引入 BpmnViewer
 
-const searchName = ref('');
-const tasks = ref<Task[]>([]);
-const formVisible = ref(false);
-const taskForm = ref({});
-const taskFormFields = ref([] as { key: string; label: string; type: string; options?: { label: string; value: string }[] }[]);
-const reassignVisible = ref(false);
-const reassignForm = ref({ assignee: '', taskId: '' });
-const users = ref([
-    { label: '張三', value: 'zhangsan' },
-    { label: '李四', value: 'lisi' },
-]);
+interface TaskViewModel {
+  id: string
+  name: string
+  processName: string
+  assignee: string
+  createTime: string
+  processInstanceId: string // ★★★ 必須新增此欄位，才能查詢流程圖 ★★★
+}
 
-const fetchTasks = async () => {
-    try {
-        const response = await taskApi.getMyTasks();
-        tasks.value = response.data.filter(task => 
-            !searchName.value || task.name?.toLowerCase().includes(searchName.value.toLowerCase())
-        );
-        ElMessage.success('查詢成功');
-    } catch (error) {
-        ElMessage.error('查詢任務失敗');
-        console.error(error);
+const tableData = ref<TaskViewModel[]>([])
+const loading = ref(false)
+const userStore = useUserStore()
+
+// 辦理表單狀態
+const dialogVisible = ref(false)
+const currentTask = ref<TaskViewModel | null>(null)
+const formLoading = ref(false)
+const formFields = ref<any[]>([])
+
+// 流程圖狀態
+const bpmnDialogVisible = ref(false)
+const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | null } | null>(null)
+
+// 載入任務列表
+const loadTasks = async () => {
+  loading.value = true
+  try {
+    const response = await taskApi.getMyTasks()
+    tableData.value = response.data as unknown as TaskViewModel[]
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error('無法載入任務列表')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 開啟辦理視窗
+const handleProcess = async (row: TaskViewModel) => {
+  if (!row.id) {
+    ElMessage.error('錯誤：任務 ID 遺失')
+    return
+  }
+
+  currentTask.value = row
+  dialogVisible.value = true
+  formLoading.value = true
+  formFields.value = []
+  
+  try {
+    const taskId = String(row.id)
+    const response = await taskApi.getTaskForm({ id: taskId })
+    formFields.value = response.data || []
+  } catch (error: any) {
+    console.error('API 呼叫錯誤:', error)
+    ElMessage.error('無法讀取任務表單')
+  } finally {
+    formLoading.value = false
+  }
+}
+
+// 3. 查看狀態 (顯示流程圖)
+const showStatus = async (row: TaskViewModel) => {
+  if (!row.processInstanceId) {
+    ElMessage.warning('無法取得流程實例 ID，請確認後端是否已回傳 processInstanceId')
+    return
+  }
+
+  loading.value = true
+  try {
+    // 呼叫 Process API 取得 XML 與當前節點
+    const response = await processApi.getProcessInstanceDiagram({ id: row.processInstanceId })
+    
+    if (!response.data.bpmnXml) {
+      ElMessage.warning('該流程實例尚未有流程圖可顯示')
+      return
     }
-};
 
-const showTaskForm = async (id: string) => {
-    try {
-        const response = await taskApi.getTaskForm({ id });
-        taskFormFields.value = response.data;
-        taskForm.value = {};
-        taskFormFields.value.forEach(field => {
-            taskForm.value[field.key] = '';
-        });
-        formVisible.value = true;
-    } catch (error) {
-        ElMessage.error('獲取表單失敗');
-        console.error(error);
+    currentBpmnData.value = { 
+      bpmnXml: response.data.bpmnXml, 
+      currentTask: response.data.currentTask 
     }
-};
+    bpmnDialogVisible.value = true
+  } catch (error: any) {
+    console.error('Failed to fetch process diagram:', error)
+    ElMessage.error('獲取流程圖失敗，請稍後重試')
+  } finally {
+    loading.value = false
+  }
+}
 
-const submitTaskForm = async () => {
-    try {
-        const taskId = tasks.value.find(t => t.id && taskFormFields.value.length > 0)?.id;
-        if (!taskId) {
-            throw new Error('無效的任務ID');
-        }
-        await taskApi.submitTaskForm({ id: taskId, taskFormRequest: { formData: taskForm.value } });
-        ElMessage.success('表單提交成功');
-        formVisible.value = false;
-        await fetchTasks(); // 刷新任務列表
-    } catch (error) {
-        ElMessage.error('表單提交失敗');
-        console.error(error);
-    }
-};
+// 提交任務
+const submitTask = async (formData: any) => {
+  if (!currentTask.value?.id) return
+  
+  try {
+    const taskId = String(currentTask.value.id)
+    const requestData = { formData: formData }
+    
+    await taskApi.submitTaskForm({ 
+      id: taskId, 
+      taskFormRequest: requestData 
+    })
+    
+    ElMessage.success('任務已完成')
+    dialogVisible.value = false
+    loadTasks()
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error('提交失敗，請稍後再試')
+  }
+}
 
-const showReassignDialog = (id: string) => {
-    reassignForm.value = { assignee: '', taskId: id };
-    reassignVisible.value = true;
-};
-
-const reassignTask = async () => {
-    if (!reassignForm.value.assignee) {
-        ElMessage.error('請選擇新執行者');
-        return;
-    }
-    try {
-        await taskApi.reassignTask({ 
-            id: reassignForm.value.taskId, 
-            taskReassignRequest: { assignee: reassignForm.value.assignee } 
-        });
-        ElMessage.success('任務已重新分配');
-        reassignVisible.value = false;
-        await fetchTasks(); // 刷新任務列表
-    } catch (error) {
-        ElMessage.error('任務重新分配失敗');
-        console.error(error);
-    }
-};
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    loadTasks()
+  }
+})
 </script>
 
 <style scoped>
-.label-wrapper {
-    text-align: right;
-    line-height: 40px;
+.page-container {
+  padding: 20px;
 }
+
+.page-title {
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 24px;
+  color: #303133;
+}
+
+.table-card {
+  width: 100%;
+}
+
 .action-buttons {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
+  display: flex;
+  justify-content: center;
+  gap: 8px; /* 按鈕之間的間距 */
+}
+
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: #606266;
 }
 </style>
