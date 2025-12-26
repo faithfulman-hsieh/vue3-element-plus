@@ -12,29 +12,42 @@
             <el-input v-model="newProcess.name" placeholder="輸入流程名稱" :disabled="loading" />
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
+        <el-col :span="8"></el-col>
       </el-row>
+      
       <el-row :gutter="20">
         <el-col :span="8">
           <div class="label-wrapper">BPMN 文件</div>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="16">
           <el-form-item prop="file" label-width="0">
-            <el-upload
-              action=""
-              :auto-upload="false"
-              :on-change="handleFileChange"
-              :show-file-list="false"
-              accept=".bpmn,.xml"
-              :disabled="loading"
-            >
-              <el-button type="primary">選擇文件</el-button>
+            <div class="upload-row">
+              <el-upload
+                action=""
+                :auto-upload="false"
+                :on-change="handleFileChange"
+                :show-file-list="false"
+                accept=".bpmn,.xml"
+                :disabled="loading"
+              >
+                <el-button type="primary">選擇文件</el-button>
+              </el-upload>
+
+              <el-button 
+                type="success" 
+                @click="handleDownloadTemplate"
+                :loading="downloadLoading"
+              >
+                <el-icon style="margin-right: 5px"><Download /></el-icon>
+                流程範本下載
+              </el-button>
+
               <span v-if="newProcess.file" class="file-name">{{ newProcess.file.name }}</span>
-            </el-upload>
+            </div>
           </el-form-item>
         </el-col>
-        <el-col :span="6"></el-col>
       </el-row>
+
       <el-row :gutter="20">
         <el-col :span="16">
           <el-form-item label-width="0" class="button-form-item">
@@ -118,8 +131,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
+import { Download } from '@element-plus/icons-vue';
 import BpmnViewer from '../../components/BpmnViewer.vue';
-import DynamicForm from '../../components/DynamicForm.vue'; // 🔥 引入動態表單
+import DynamicForm from '../../components/DynamicForm.vue';
 import { processApi } from '../../api/client';
 import type { ProcessDefinition, ProcessRequest, FormField } from '../../api/models';
 import { useUserStore } from '../../stores/userStore';
@@ -138,6 +152,7 @@ const formFields = ref<FormField[]>([]);
 const formLoading = ref(false);
 
 const loading = ref(false);
+const downloadLoading = ref(false);
 const userStore = useUserStore();
 const router = useRouter();
 
@@ -147,9 +162,6 @@ const fetchProcesses = async () => {
     loading.value = true;
     const response = await processApi.getAllDefinitions();
     processes.value = response.data || [];
-    if (!processes.value.length) {
-      // ElMessage.warning('無可用流程定義'); // 拿掉這個避免一直彈
-    }
   } catch (error: any) {
     console.error('Failed to fetch processes:', error);
     ElMessage.error(error.response?.data?.message || '獲取流程定義失敗，請稍後重試');
@@ -175,7 +187,6 @@ const deployProcess = async () => {
       name: newProcess.value.name,
       file: newProcess.value.file,
     };
-    // 根據您原本的寫法，這裡包了一層 { request }
     const response = await processApi.deployProcess({ request }); 
     ElMessage.success(`流程部署成功，ID: ${response.data.id}`);
     newProcess.value = { name: '', file: null };
@@ -221,9 +232,8 @@ const toggleProcessStatus = async (id: string) => {
   }
 };
 
-// 🔥 3. 點擊「啟動流程」按鈕
+// 3. 點擊「啟動流程」按鈕
 const showStartProcessDialog = async (processDefinitionId: string) => {
-  // 修正：改回使用 isLoggedIn 判斷
   if (!userStore.isLoggedIn) {
     ElMessage.error('請先登錄');
     router.push('/login');
@@ -236,7 +246,7 @@ const showStartProcessDialog = async (processDefinitionId: string) => {
 
   formFields.value = [];
   formLoading.value = true;
-  startDialogVisible.value = true; // 先打開 Dialog 讓使用者知道有反應
+  startDialogVisible.value = true;
 
   try {
     const response = await processApi.getProcessFormFields({ id: processDefinitionId });
@@ -249,24 +259,21 @@ const showStartProcessDialog = async (processDefinitionId: string) => {
   }
 };
 
-// 🔥 4. 接收動態表單的 Submit 事件
+// 4. 接收動態表單的 Submit 事件
 const handleDynamicSubmit = async (formData: any) => {
   try {
     loading.value = true;
     
-    // 組裝 Request
     const processRequest: ProcessRequest = {
       processDefinitionId: currentProcessId.value,
       variables: formData,
     };
     
-    // 呼叫原本的 API
     const response = await processApi.startProcess({ processRequest });
     
     ElMessage.success(`流程啟動成功，ID: ${response.data.id}`);
     startDialogVisible.value = false;
     
-    // 清空暫存
     currentProcessId.value = '';
     formFields.value = [];
   } catch (error: any) {
@@ -277,16 +284,50 @@ const handleDynamicSubmit = async (formData: any) => {
   }
 };
 
+// 5. 下載範本邏輯
+const handleDownloadTemplate = async () => {
+  try {
+    downloadLoading.value = true;
+    const filename = 'leaveProcess.bpmn20.xml';
+    
+    const response = await processApi.downloadTemplate(filename);
+    
+    const blob = new Blob([response.data as unknown as BlobPart], { type: 'application/octet-stream' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    ElMessage.success('範本下載成功');
+  } catch (error) {
+    console.error('下載失敗:', error);
+    ElMessage.error('範本下載失敗');
+  } finally {
+    downloadLoading.value = false;
+  }
+};
+
 onMounted(() => {
   fetchProcesses();
 });
 </script>
 
 <style scoped>
-/* 完全保留您原本的 CSS */
 .label-wrapper {
   text-align: right;
   line-height: 40px;
+}
+/* ★★★ 新增：讓上傳區塊橫向排列並置中對齊 ★★★ */
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 .action-buttons {
   display: flex;
@@ -295,8 +336,11 @@ onMounted(() => {
   flex-wrap: nowrap;
 }
 .file-name {
-  margin-left: 10px;
   color: #606266;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 .empty-form-state {
   text-align: center;
