@@ -1,4 +1,3 @@
-<!-- src/components/BpmnViewer.vue-->
 <template>
     <div class="bpmn-container" ref="bpmnContainer"></div>
   </template>
@@ -57,7 +56,7 @@
         console.warn('No current task to highlight');
       }
     } catch (error) {
-      ElMessage.error('渲染流程圖失敗');
+      // ElMessage.error('渲染流程圖失敗');
       console.error('渲染流程圖失敗:', error);
     }
   };
@@ -90,11 +89,13 @@
     overflow: auto;
   }
 
-  /* 高亮樣式 */
-  :deep(.highlight .djs-visual > rect) {
+  /* ★★★ 修正點：擴充支援 circle (圓形) 與 polygon (多邊形) ★★★ */
+  :deep(.highlight .djs-visual > rect),
+  :deep(.highlight .djs-visual > circle),
+  :deep(.highlight .djs-visual > polygon) {
     fill: #fff9c4 !important; /* 淺黃底色 */
     stroke: #ff0000 !important; /* 紅色邊框 */
-    stroke-width: 2px !important; /* 邊框寬度 */
+    stroke-width: 3px !important; /* 加粗一點讓圓形更明顯 */
     stroke-opacity: 1 !important; /* 邊框不透明 */
   }
 

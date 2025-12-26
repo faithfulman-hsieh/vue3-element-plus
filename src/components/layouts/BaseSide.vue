@@ -49,7 +49,7 @@
         </el-menu-item>
         <el-menu-item index="/tasks">
             <el-icon><Document /></el-icon>
-            <template #title>我的待辦任務</template>
+            <template #title>我的任務中心</template>
         </el-menu-item>
         <el-menu-item index="/helloWorld">
             <el-icon><Setting /></el-icon>

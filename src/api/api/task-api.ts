@@ -16,7 +16,6 @@ import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
 import globalAxios from 'axios';
 import { DUMMY_BASE_URL, assertParamExists, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
 import { BASE_PATH, RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
-import type { Task, TaskFormRequest, TaskReassignRequest } from '../models';
 
 /**
  * TaskAPI - axios parameter creator
@@ -32,6 +31,33 @@ export const TaskAPIAxiosParamCreator = function (configuration?: Configuration)
          */
         getMyTasks: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/task/my-tasks`;
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Retrieves completed tasks assigned to the current user
+         * @summary Get user's history tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getHistoryTasks: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/task/history-tasks`;
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
             if (configuration) {
@@ -171,6 +197,18 @@ export const TaskAPIFp = function (configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Retrieves completed tasks assigned to the current user
+         * @summary Get user's history tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getHistoryTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Task[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getHistoryTasks(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TaskAPI.getHistoryTasks']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Retrieves the form structure for a task
          * @summary Get task form
          * @param {string} id
@@ -229,6 +267,15 @@ export const TaskAPIFactory = function (configuration?: Configuration, basePath?
          */
         getMyTasks(options?: RawAxiosRequestConfig): AxiosPromise<Task[]> {
             return localVarFp.getMyTasks(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Retrieves completed tasks assigned to the current user
+         * @summary Get user's history tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getHistoryTasks(options?: RawAxiosRequestConfig): AxiosPromise<Task[]> {
+            return localVarFp.getHistoryTasks(options).then((request) => request(axios, basePath));
         },
         /**
          * Retrieves the form structure for a task
@@ -311,6 +358,17 @@ export class TaskAPI extends BaseAPI {
     }
 
     /**
+     * Retrieves completed tasks assigned to the current user
+     * @summary Get user's history tasks
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TaskAPI
+     */
+    public getHistoryTasks(options?: RawAxiosRequestConfig) {
+        return TaskAPIFp(this.configuration).getHistoryTasks(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * Retrieves the form structure for a task
      * @summary Get task form
      * @param {TaskAPIGetTaskFormRequest} requestParameters Request parameters.
@@ -376,4 +434,6 @@ export interface Task {
     processName?: string;
     assignee?: string;
     createTime?: string;
+    processInstanceId?: string;
+    currentAssignee?: string; // ★★★ 新增：當前處理人員 (用於經手任務)
 }
