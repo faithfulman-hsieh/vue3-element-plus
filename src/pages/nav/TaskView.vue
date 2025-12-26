@@ -122,6 +122,7 @@ import { taskApi, processApi } from '../../api/client'
 import DynamicForm from '../../components/DynamicForm.vue'
 import BpmnViewer from '../../components/BpmnViewer.vue'
 
+// 移除 variables，回復單純定義
 interface TaskViewModel {
   id: string
   name: string
@@ -129,7 +130,7 @@ interface TaskViewModel {
   assignee: string
   createTime: string
   processInstanceId: string
-  currentAssignee?: string // ★★★ 新增欄位定義
+  currentAssignee?: string
 }
 
 const activeTab = ref('pending')
@@ -192,6 +193,7 @@ const handleProcess = async (row: TaskViewModel) => {
   
   try {
     const taskId = String(row.id)
+    // 呼叫 API，後端會把 todoTitle 等值填入 value 欄位
     const response = await taskApi.getTaskForm({ id: taskId })
     formFields.value = response.data || []
   } catch (error: any) {
