@@ -1,6 +1,10 @@
 <template>
-  <el-form ref="formRef" :model="formData" label-width="120px">
-    
+  <el-form 
+    ref="formRef" 
+    :model="formData" 
+    label-width="120px" 
+    class="dynamic-form"
+  >
     <el-form-item
       v-for="field in regularFields"
       :key="field.key"
@@ -11,6 +15,15 @@
       <el-input
         v-if="field.type === 'text'"
         v-model="formData[field.key]"
+        :disabled="field.disabled"
+        :placeholder="field.disabled ? '' : '請輸入'"
+      />
+      
+      <el-input
+        v-if="field.type === 'textarea'"
+        v-model="formData[field.key]"
+        type="textarea"
+        :rows="3"
         :disabled="field.disabled"
         :placeholder="field.disabled ? '' : '請輸入'"
       />
@@ -37,6 +50,7 @@
         :disabled="field.disabled"
         style="width: 100%"
         value-format="YYYY-MM-DD"
+        placeholder="請選擇日期"
       />
 
       <el-input-number
@@ -90,18 +104,14 @@ const emit = defineEmits(['submit', 'cancel'])
 const formRef = ref<FormInstance>()
 const formData = ref<any>({})
 
-// ★★★ 1. 拆分欄位邏輯 ★★★
-// 找出那個被標記為 'buttons' 的欄位 (例如：簽核動作)
 const actionField = computed(() => {
   return props.fields.find(f => f.uiComponent === 'buttons' && f.type === 'select')
 })
 
-// 找出其他所有需要顯示的輸入欄位
 const regularFields = computed(() => {
   return props.fields.filter(f => !(f.uiComponent === 'buttons' && f.type === 'select'))
 })
 
-// 初始化表單值
 watch(
   () => props.fields,
   (newFields) => {
@@ -121,13 +131,8 @@ watch(
   { immediate: true, deep: true }
 )
 
-// ★★★ 2. 處理按鈕點擊 ★★★
-// 當使用者點擊底部某個 Action 按鈕 (例如 "駁回")
 const handleActionSubmit = async (key: string, value: string) => {
-  // 1. 自動將該按鈕的值填入表單資料
   formData.value[key] = value
-  
-  // 2. 執行驗證並送出
   handleSubmit()
 }
 
@@ -140,29 +145,33 @@ const handleSubmit = async () => {
   })
 }
 
-// ★★★ 3. 輔助樣式：讓駁回按鈕變紅色，完成變藍色/綠色 ★★★
 const getButtonType = (value: string) => {
   const lowerVal = value.toLowerCase()
   if (['reject', 'cancel', 'delete'].some(k => lowerVal.includes(k))) {
-    return 'danger' // 紅色
+    return 'danger'
   }
   if (['approve', 'confirm', 'complete', 'pass'].some(k => lowerVal.includes(k))) {
-    return 'primary' // 藍色 (或可改 success 綠色)
+    return 'primary'
   }
   if (['reassign'].some(k => lowerVal.includes(k))) {
-    return 'warning' // 黃色/橘色
+    return 'warning'
   }
-  return 'default' // 灰色
+  return 'default'
 }
 </script>
 
 <style scoped>
+.dynamic-form {
+  /* ★★★ 修改：上下 10px，左右 10% ★★★ */
+  padding: 10px 10%; 
+}
+
 .form-footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
   display: flex;
-  justify-content: flex-end; /* 按鈕靠右對齊，符合對話框習慣 */
-  gap: 10px;
-  margin-top: 20px;
-  padding-top: 10px;
-  border-top: 1px solid #f0f0f0; /* 加一條分隔線更清晰 */
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>
