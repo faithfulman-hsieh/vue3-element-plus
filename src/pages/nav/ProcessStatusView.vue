@@ -114,8 +114,7 @@ const showProcessDiagram = async (id: string) => {
     loading.value = true;
     currentInstanceId.value = id; // 設定當前 ID 給 Timeline
     
-    // ★★★ 修正：必須傳遞物件 { id } 而不是直接傳 id ★★★
-    // 這是因為 process-api.ts 的接口定義是 getProcessInstanceDiagram(requestParameters: { id: string })
+    // ★★★ 修正點：參數必須包裝成物件 { id }，解決前端報錯 ★★★
     const response = await processApi.getProcessInstanceDiagram({ id });
     
     if (!response.data.bpmnXml) {
