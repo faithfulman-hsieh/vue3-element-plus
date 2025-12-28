@@ -55,7 +55,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import axios from 'axios'
+// ★★★ 修改 1: 引入 processApi 而不是 axios ★★★
+import { processApi } from '../api/client'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   instanceId: {
@@ -69,20 +71,22 @@ const activities = ref<any[]>([])
 const fetchHistory = async () => {
   if (!props.instanceId) return
   try {
-    // ★★★ 注意：這裡呼叫的 Controller 仍是複數路徑 instances ★★★
-    // 這是對應我剛剛給您的 ProcessController
-    const res = await axios.get(`/api/process/instances/${props.instanceId}/history`)
+    // ★★★ 修改 2: 改用 client 呼叫，確保路徑與 Token 正確 ★★★
+    // 注意：參數必須包成物件 { id: props.instanceId }
+    const res = await processApi.getProcessHistory({ id: props.instanceId })
     activities.value = res.data
-  } catch (err) {
+  } catch (err: any) {
     console.error('獲取歷史失敗', err)
+    // 顯示錯誤訊息以便除錯
+    ElMessage.error(err.response?.data?.message || '無法載入歷程')
   }
 }
 
 const getActivityTypeColor = (activity: any) => {
   if (activity.status === 'Running') return 'primary'
-  if (activity.activityType === 'startEvent') return 'info'   // 灰色
-  if (activity.activityType === 'endEvent') return 'success'  // 綠色
-  return 'primary' // 藍色
+  if (activity.activityType === 'startEvent') return 'info'
+  if (activity.activityType === 'endEvent') return 'success'
+  return 'primary'
 }
 
 const getStatusType = (status: string) => {

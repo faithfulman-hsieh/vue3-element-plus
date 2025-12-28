@@ -16,13 +16,11 @@ import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
 import globalAxios from 'axios';
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
-import type { Process, ProcessRequest, FormField, FlowNode, User } from '../models';
+import type { Process, ProcessRequest, FormField, FlowNode, User, HistoryLog } from '../models';
 
 export const ProcessAPIAxiosParamCreator = function (configuration?: Configuration) {
     return {
-        // ... (其他方法保持不變) ...
         deployProcess: async (request: ProcessRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // ...
             assertParamExists('deployProcess', 'request', request);
             const localVarPath = `/api/process/deploy`;
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -340,7 +338,6 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
-        // ★★★ 新增：下載流程範本 ★★★
         downloadTemplate: async (filename: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('downloadTemplate', 'filename', filename);
             const localVarPath = `/api/process/template/${filename}`;
@@ -355,6 +352,30 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
 
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = { ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        // ★★★ 新增：獲取流程歷程 ★★★
+        getProcessHistory: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('getProcessHistory', 'id', id);
+            const localVarPath = `/api/process/instances/{id}/history`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -446,11 +467,17 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.jumpToNode']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
-        // ★★★ 新增：下載流程範本 ★★★
         async downloadTemplate(filename: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Blob>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.downloadTemplate(filename, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.downloadTemplate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        // ★★★ 新增：獲取流程歷程 ★★★
+        async getProcessHistory(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<HistoryLog[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getProcessHistory(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getProcessHistory']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     };
@@ -499,9 +526,12 @@ export const ProcessAPIFactory = function (configuration?: Configuration, basePa
         jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(axios, basePath));
         },
-        // ★★★ 新增：下載流程範本 ★★★
         downloadTemplate(filename: string, options?: RawAxiosRequestConfig): AxiosPromise<Blob> {
             return localVarFp.downloadTemplate(filename, options).then((request) => request(axios, basePath));
+        },
+        // ★★★ 新增：獲取流程歷程 ★★★
+        getProcessHistory(requestParameters: ProcessAPIGetProcessHistoryRequest, options?: RawAxiosRequestConfig): AxiosPromise<HistoryLog[]> {
+            return localVarFp.getProcessHistory(requestParameters.id, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -546,6 +576,11 @@ export interface ProcessAPIReassignTaskRequest {
 export interface ProcessAPIJumpToNodeRequest {
     readonly processInstanceId: string;
     readonly targetNode: string;
+}
+
+// ★★★ 新增介面：歷史紀錄請求參數 ★★★
+export interface ProcessAPIGetProcessHistoryRequest {
+    readonly id: string;
 }
 
 export class ProcessAPI extends BaseAPI {
@@ -601,9 +636,13 @@ export class ProcessAPI extends BaseAPI {
         return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(this.axios, this.basePath));
     }
 
-    // ★★★ 新增：下載流程範本 ★★★
     public downloadTemplate(filename: string, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).downloadTemplate(filename, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    // ★★★ 新增：獲取流程歷程 ★★★
+    public getProcessHistory(requestParameters: ProcessAPIGetProcessHistoryRequest, options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).getProcessHistory(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -622,4 +661,16 @@ export interface FlowNode {
 export interface User {
     label: string;
     value: string;
+}
+
+// 記得要確保 HistoryLog 有在 src/api/models/index.ts 或這裡定義
+export interface HistoryLog {
+    activityName?: string;
+    activityType?: string;
+    assignee?: string;
+    startTime?: string;
+    endTime?: string;
+    duration?: string;
+    status?: string;
+    variables?: { [key: string]: any };
 }

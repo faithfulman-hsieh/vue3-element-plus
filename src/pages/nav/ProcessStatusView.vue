@@ -114,7 +114,8 @@ const showProcessDiagram = async (id: string) => {
     loading.value = true;
     currentInstanceId.value = id; // 設定當前 ID 給 Timeline
     
-    // ★★★ 修正點：參數必須包裝成物件 { id }，解決前端報錯 ★★★
+    // ★★★ 關鍵修正：必須傳遞物件 { id } 而不是直接傳 id ★★★
+    // 解決 "Required parameter id was null or undefined" 錯誤
     const response = await processApi.getProcessInstanceDiagram({ id });
     
     if (!response.data.bpmnXml) {
