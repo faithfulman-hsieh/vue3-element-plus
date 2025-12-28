@@ -2,7 +2,6 @@
     <div class="page-container">
         <h1 class="page-title">流程狀態查詢</h1>
 
-        <!-- 篩選 -->
         <el-form class="form-card">
             <el-row :gutter="20">
                 <el-col :span="8">
@@ -24,7 +23,6 @@
             </el-row>
         </el-form>
 
-        <!-- 流程實例列表 -->
         <el-row :gutter="20">
             <el-col :span="22" :offset="1">
                 <el-table :data="processInstances" class="table-card" border stripe :loading="loading">
@@ -45,9 +43,29 @@
             </el-col>
         </el-row>
 
-        <!-- 流程圖對話框 -->
-        <el-dialog title="流程狀態" v-model="dialogVisible" width="80%">
-            <bpmn-viewer :bpmnXml="currentBpmnData?.bpmnXml" :currentTask="currentBpmnData?.currentTask" />
+        <el-dialog 
+          title="流程狀態詳情" 
+          v-model="dialogVisible" 
+          width="90%" 
+          top="5vh"
+          destroy-on-close
+        >
+            <div class="dialog-content-wrapper">
+                <div class="diagram-panel">
+                    <bpmn-viewer 
+                        v-if="currentBpmnData"
+                        :bpmnXml="currentBpmnData.bpmnXml" 
+                        :currentTask="currentBpmnData.currentTask" 
+                    />
+                </div>
+                
+                <div class="timeline-panel">
+                    <process-timeline 
+                        v-if="currentInstanceId"
+                        :instanceId="currentInstanceId" 
+                    />
+                </div>
+            </div>
         </el-dialog>
     </div>
 </template>
@@ -55,14 +73,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import BpmnViewer from '~/components/BpmnViewer.vue';
-import { processApi } from '~/api/client';
-import type { ProcessInstance } from '~/api/models';
+import BpmnViewer from '../../components/BpmnViewer.vue';
+import ProcessTimeline from '../../components/ProcessTimeline.vue'; // 引入新元件
+import { processApi } from '../../api/client';
+import type { ProcessInstance } from '../../api/models';
 
 const searchName = ref('');
 const processInstances = ref<ProcessInstance[]>([]);
 const dialogVisible = ref(false);
-const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | null } | null>(null);
+const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | string[] | null } | null>(null);
+const currentInstanceId = ref(''); // 用來傳遞給 Timeline
 const loading = ref(false);
 
 const fetchProcesses = async () => {
@@ -71,7 +91,6 @@ const fetchProcesses = async () => {
     const response = await processApi.getAllInstances();
     let instances = response.data || [];
     
-    // 根據流程名稱篩選
     if (searchName.value.trim()) {
       instances = instances.filter(instance => 
         instance.name.toLowerCase().includes(searchName.value.trim().toLowerCase())
@@ -81,12 +100,10 @@ const fetchProcesses = async () => {
     processInstances.value = instances;
     if (!processInstances.value.length) {
       ElMessage.warning('無符合條件的流程實例');
-    } else {
-      ElMessage.success('查詢成功');
     }
   } catch (error: any) {
     console.error('Failed to fetch process instances:', error);
-    ElMessage.error(error.response?.data?.message || '獲取流程實例失敗，請稍後重試');
+    ElMessage.error(error.response?.data?.message || '獲取流程實例失敗');
   } finally {
     loading.value = false;
   }
@@ -95,7 +112,12 @@ const fetchProcesses = async () => {
 const showProcessDiagram = async (id: string) => {
   try {
     loading.value = true;
+    currentInstanceId.value = id; // 設定當前 ID 給 Timeline
+    
+    // ★★★ 修正：必須傳遞物件 { id } 而不是直接傳 id ★★★
+    // 這是因為 process-api.ts 的接口定義是 getProcessInstanceDiagram(requestParameters: { id: string })
     const response = await processApi.getProcessInstanceDiagram({ id });
+    
     if (!response.data.bpmnXml) {
       ElMessage.warning('該流程實例尚未有流程圖可顯示');
       return;
@@ -107,7 +129,7 @@ const showProcessDiagram = async (id: string) => {
     dialogVisible.value = true;
   } catch (error: any) {
     console.error('Failed to fetch process diagram:', error);
-    ElMessage.error(error.response?.data?.message || '獲取流程圖失敗，請稍後重試');
+    ElMessage.error(error.response?.data?.message || '獲取流程圖失敗');
   } finally {
     loading.value = false;
   }
@@ -128,5 +150,29 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
+}
+
+/* 對話框內容佈局 */
+.dialog-content-wrapper {
+  display: flex;
+  gap: 20px;
+  height: 70vh; /* 固定高度，內部捲動 */
+}
+
+.diagram-panel {
+  flex: 2; /* 左側佔 2/3 */
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #f5f7fa;
+}
+
+.timeline-panel {
+  flex: 1; /* 右側佔 1/3 */
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-y: auto; /* 歷程長時可捲動 */
+  background-color: #fff;
 }
 </style>
