@@ -25,6 +25,7 @@ declare module 'vue-router/auto-routes' {
     '/nav/LoginView': RouteRecordInfo<'/nav/LoginView', '/nav/LoginView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessAdjustView': RouteRecordInfo<'/nav/ProcessAdjustView', '/nav/ProcessAdjustView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessManageView': RouteRecordInfo<'/nav/ProcessManageView', '/nav/ProcessManageView', Record<never, never>, Record<never, never>>,
+    '/nav/ProcessStartView': RouteRecordInfo<'/nav/ProcessStartView', '/nav/ProcessStartView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessStatusView': RouteRecordInfo<'/nav/ProcessStatusView', '/nav/ProcessStatusView', Record<never, never>, Record<never, never>>,
     '/nav/TaskView': RouteRecordInfo<'/nav/TaskView', '/nav/TaskView', Record<never, never>, Record<never, never>>,
     '/nav/TodoView': RouteRecordInfo<'/nav/TodoView', '/nav/TodoView', Record<never, never>, Record<never, never>>,
