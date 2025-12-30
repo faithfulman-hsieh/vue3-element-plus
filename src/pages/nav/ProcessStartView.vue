@@ -46,25 +46,48 @@
       </el-col>
     </el-row>
 
-    <el-dialog v-model="startDialogVisible" title="填寫申請資訊" width="500px">
-      <el-form label-width="100px">
-        <el-form-item label="流程名稱">
-          <el-input v-model="currentProcessName" disabled />
-        </el-form-item>
-        <el-form-item label="申請參數">
-          <el-input
-            v-model="startVariablesJson"
-            type="textarea"
-            :rows="6"
-            placeholder='請輸入 JSON 格式，例如：{"amount": 5000}'
-          />
-          <div class="tip">提示：請輸入合法的 JSON 字串</div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="startDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleStartProcess">確認送出</el-button>
-      </template>
+    <el-dialog 
+      v-model="startDialogVisible" 
+      :title="`發起申請：${currentProcessName}`" 
+      width="600px" 
+      destroy-on-close
+    >
+      <div v-loading="formLoading" class="dialog-body">
+        
+        <DynamicForm 
+          v-if="formFields.length > 0" 
+          ref="dynamicFormRef"
+          :fields="formFields"
+          @submit="handleStartProcess"
+          @cancel="startDialogVisible = false"
+          submitText="確認送出"
+        />
+
+        <div v-else class="no-form-state">
+          <el-result
+            icon="info"
+            title="無需填寫表單"
+            sub-title="此流程定義中未包含啟動表單，您可以直接發起。"
+          >
+            <template #extra>
+              <el-button @click="startDialogVisible = false">取消</el-button>
+              <el-button type="primary" @click="handleFallbackStart">直接啟動</el-button>
+            </template>
+          </el-result>
+          
+          <el-collapse v-model="activeCollapse" class="mt-4">
+            <el-collapse-item title="進階參數設定 (Optional)" name="1">
+              <el-input 
+                v-model="fallbackJson" 
+                type="textarea" 
+                :rows="3" 
+                placeholder='JSON 格式參數，如：{"amount": 5000}' 
+              />
+            </el-collapse-item>
+          </el-collapse>
+        </div>
+
+      </div>
     </el-dialog>
 
   </div>
@@ -75,21 +98,26 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoPlay } from '@element-plus/icons-vue'
 import { processApi } from '../../api/client'
+import DynamicForm from '../../components/DynamicForm.vue' // 引入動態表單
 
 const loading = ref(false)
+const formLoading = ref(false)
 const processList = ref<any[]>([])
 
 const startDialogVisible = ref(false)
 const currentProcessId = ref('')
 const currentProcessName = ref('')
-const startVariablesJson = ref('')
+const formFields = ref<any[]>([])
+const activeCollapse = ref([]) // 控制進階參數折疊
+const fallbackJson = ref('{}')
 
+// 載入流程清單
 const loadProcesses = async () => {
   loading.value = true
   try {
     const res = await processApi.getAllDefinitions()
-    // 前端過濾掉掛起的流程 (或者顯示為維護中)
-    processList.value = res.data || []
+    // 只顯示 active (已啟用) 的流程
+    processList.value = (res.data || []).filter((p: any) => p.status !== 'suspended')
   } catch (err) {
     ElMessage.error('載入流程列表失敗')
   } finally {
@@ -97,44 +125,72 @@ const loadProcesses = async () => {
   }
 }
 
-const openStartDialog = (row: any) => {
+// 開啟對話框並讀取表單定義
+const openStartDialog = async (row: any) => {
   currentProcessId.value = row.id
   currentProcessName.value = row.name
-  
-  // 針對演示流程給予預設值，方便測試
-  if (row.key === 'purchaseProcess') {
-    startVariablesJson.value = JSON.stringify({
-      "itemName": "測試採購",
-      "amount": 8000
-    }, null, 2)
-  } else if (row.key === 'leaveProcess') {
-    startVariablesJson.value = JSON.stringify({
-      "day": 3,
-      "reason": "特休假"
-    }, null, 2)
-  } else {
-    startVariablesJson.value = '{}'
-  }
   startDialogVisible.value = true
+  formLoading.value = true
+  formFields.value = []
+  fallbackJson.value = '{}'
+  activeCollapse.value = []
+
+  try {
+    // 1. 嘗試從後端獲取 BPMN 定義的表單
+    const res = await processApi.getProcessFormFields({ id: row.id })
+    
+    if (res.data && res.data.length > 0) {
+      formFields.value = res.data
+    } else {
+      // 2. 如果後端沒定義 (空陣列)，為了 Demo 方便，手動注入常用流程的表單
+      if (row.key === 'purchaseProcess') {
+         formFields.value = [
+           { key: 'itemName', label: '採購項目名稱', type: 'text', required: true, value: '辦公設備' },
+           { key: 'amount', label: '預計金額', type: 'number', required: true, value: 5000 }
+         ]
+      } else if (row.key === 'leaveProcess') {
+         formFields.value = [
+           { key: 'day', label: '請假天數', type: 'number', required: true, value: 1 },
+           { key: 'reason', label: '請假事由', type: 'text', required: true, value: '特休' }
+         ]
+      }
+      // 如果都不是，則 formFields 維持空，介面會顯示「直接啟動」
+    }
+  } catch (err) {
+    console.error(err)
+    ElMessage.warning('讀取表單定義失敗，將進入基本模式')
+  } finally {
+    formLoading.value = false
+  }
 }
 
-const handleStartProcess = async () => {
+// 處理動態表單送出
+const handleStartProcess = async (formData: any) => {
   try {
-    const variables = JSON.parse(startVariablesJson.value)
-    
-    // 呼叫 startProcess，注意參數結構需符合 API 定義
+    formLoading.value = true
     await processApi.startProcess({
       processRequest: {
         processDefinitionId: currentProcessId.value,
-        variables: variables
+        variables: formData
       }
     })
-    
     ElMessage.success('申請已成功送出！')
     startDialogVisible.value = false
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
-    ElMessage.error('啟動失敗：請確認 JSON 格式正確')
+    ElMessage.error('啟動失敗: ' + (err.response?.data?.message || '未知錯誤'))
+  } finally {
+    formLoading.value = false
+  }
+}
+
+// 處理無表單時的強制啟動
+const handleFallbackStart = async () => {
+  try {
+    const variables = JSON.parse(fallbackJson.value)
+    await handleStartProcess(variables)
+  } catch (e) {
+    ElMessage.error('JSON 參數格式錯誤')
   }
 }
 
@@ -163,6 +219,9 @@ onMounted(() => {
 }
 .mb-4 {
   margin-bottom: 20px;
+}
+.mt-4 {
+  margin-top: 20px;
 }
 .process-card {
   height: 100%;
@@ -204,9 +263,10 @@ onMounted(() => {
 .mr-1 {
   margin-right: 4px;
 }
-.tip {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  margin-top: 5px;
+.dialog-body {
+  min-height: 150px;
+}
+.no-form-state {
+  padding: 10px 0;
 }
 </style>

@@ -12,6 +12,7 @@ import ProcessStatusView from '../pages/nav/ProcessStatusView.vue';
 import ProcessAdjustView from '../pages/nav/ProcessAdjustView.vue';
 import RoleManageView from '../pages/nav/RoleManageView.vue';
 import ProcessStartView from '../pages/nav/ProcessStartView.vue' // ★ 新增 Import
+import MyRequestView from '../pages/nav/MyRequestView.vue' // ★ 新增 Import
 
 export const routes = [
   {
@@ -52,6 +53,12 @@ export const routes = [
     component: ProcessManageView,
     meta: { requiresAuth: true },
   },
+  {
+    path: '/tasks',
+    name: 'tasks',
+    component: TaskView,
+    meta: { requiresAuth: true },
+  },
   // ★★★ 新增：員工發起申請頁面 ★★★
   {
     path: '/process-start',
@@ -59,10 +66,11 @@ export const routes = [
     component: ProcessStartView,
     meta: { requiresAuth: true },
   },
+  // ★★★ 新增：我的申請紀錄 ★★★
   {
-    path: '/tasks',
-    name: 'tasks',
-    component: TaskView,
+    path: '/my-request',
+    name: 'myRequest',
+    component: MyRequestView,
     meta: { requiresAuth: true },
   },
   {

@@ -21,7 +21,7 @@
         <template #title>發起申請</template>
       </el-menu-item>
 
-      <el-menu-item index="/process-status">
+      <el-menu-item index="/my-request">
         <el-icon><Tickets /></el-icon>
         <template #title>我的申請紀錄</template>
       </el-menu-item>

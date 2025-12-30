@@ -23,6 +23,7 @@ declare module 'vue-router/auto-routes' {
     '/nav/HelloWorld': RouteRecordInfo<'/nav/HelloWorld', '/nav/HelloWorld', Record<never, never>, Record<never, never>>,
     '/nav/HomeView': RouteRecordInfo<'/nav/HomeView', '/nav/HomeView', Record<never, never>, Record<never, never>>,
     '/nav/LoginView': RouteRecordInfo<'/nav/LoginView', '/nav/LoginView', Record<never, never>, Record<never, never>>,
+    '/nav/MyRequestView': RouteRecordInfo<'/nav/MyRequestView', '/nav/MyRequestView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessAdjustView': RouteRecordInfo<'/nav/ProcessAdjustView', '/nav/ProcessAdjustView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessManageView': RouteRecordInfo<'/nav/ProcessManageView', '/nav/ProcessManageView', Record<never, never>, Record<never, never>>,
     '/nav/ProcessStartView': RouteRecordInfo<'/nav/ProcessStartView', '/nav/ProcessStartView', Record<never, never>, Record<never, never>>,
