@@ -1,9 +1,10 @@
-<!-- src/views/TodoView.vue -->
 <template>
   <div class="page-container">
-    <h1 class="page-title">待辦事項管理</h1>
+    <div class="header">
+      <h1 class="page-title">簡易待辦 (Todo)</h1>
+      <span class="subtitle">基礎 CRUD 功能展示與測試</span>
+    </div>
 
-    <!-- 新增待辦事項 -->
     <el-form :model="newTodo" class="form-card">
       <el-row :gutter="20">
         <el-col :span="8">
@@ -47,7 +48,6 @@
       </el-row>
     </el-form>
 
-    <!-- 待辦事項列表 -->
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
         <el-table :data="todos" class="table-card" border stripe>
@@ -83,8 +83,7 @@
       </el-col>
     </el-row>
 
-    <!-- 流程圖對話框 -->
-    <el-dialog title="流程狀態" v-model="dialogVisible" width="80%">
+    <el-dialog title="流程執行狀態" v-model="dialogVisible" width="80%">
       <bpmn-viewer :bpmnXml="currentBpmnData?.bpmnXml" :currentTask="currentBpmnData?.currentTask" />
     </el-dialog>
   </div>
@@ -93,9 +92,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { todosApi } from '~/api/client';
-import type { Todo, TodoRequest } from '~/api/models';
-import BpmnViewer from '~/components/BpmnViewer.vue';
+import { todosApi } from '../../api/client';
+import type { Todo, TodoRequest } from '../../api/models';
+import BpmnViewer from '../../components/BpmnViewer.vue';
 
 const todos = ref<Todo[]>([]);
 const newTodo = ref<TodoRequest>({ title: '', description: '', assignee: '' });
@@ -213,19 +212,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-container {
+  padding: 20px;
+}
+.header {
+  margin-bottom: 20px;
+}
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  display: block;
+}
 .label-wrapper {
   text-align: right;
   line-height: 40px;
 }
-
 .action-buttons {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
 }
-
 .priority-select {
   width: 100px;
+}
+.table-card {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
 }
 </style>

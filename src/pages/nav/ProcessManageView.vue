@@ -1,6 +1,9 @@
 <template>
   <div class="page-container">
-    <h1 class="page-title">流程定義管理</h1>
+    <div class="header">
+      <h1 class="page-title">流程定義管理</h1>
+      <span class="subtitle">管理系統中的流程定義，包含部署、啟動與狀態管理</span>
+    </div>
 
     <el-form :model="newProcess" class="form-card">
       <el-row :gutter="20">
@@ -89,7 +92,7 @@
                   @click="showStartProcessDialog(row.id)"
                   :disabled="row.status !== 'active' || loading"
                 >
-                  啟動流程
+                  啟動測試
                 </el-button>
               </div>
             </template>
@@ -98,12 +101,12 @@
       </el-col>
     </el-row>
 
-    <el-dialog title="流程圖" v-model="dialogVisible" width="80%">
+    <el-dialog title="流程定義預覽" v-model="dialogVisible" width="80%">
       <bpmn-viewer :bpmnXml="currentBpmnData?.bpmnXml" :currentTask="currentBpmnData?.currentTask" />
     </el-dialog>
 
     <el-dialog 
-      :title="'啟動流程' + (currentProcessName ? '：' + currentProcessName : '')" 
+      :title="'啟動流程測試' + (currentProcessName ? '：' + currentProcessName : '')" 
       v-model="startDialogVisible" 
       width="50%"
       destroy-on-close
@@ -145,7 +148,6 @@ const dialogVisible = ref(false);
 const startDialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | null } | null>(null);
 
-// 啟動流程相關
 const currentProcessId = ref('');
 const currentProcessName = ref('');
 const formFields = ref<FormField[]>([]);
@@ -156,7 +158,6 @@ const downloadLoading = ref(false);
 const userStore = useUserStore();
 const router = useRouter();
 
-// 1. 獲取列表
 const fetchProcesses = async () => {
   try {
     loading.value = true;
@@ -174,7 +175,6 @@ const handleFileChange = (file: any) => {
   newProcess.value.file = file.raw;
 };
 
-// 2. 部署流程
 const deployProcess = async () => {
   if (!newProcess.value.name || !newProcess.value.file) {
     ElMessage.warning('請填寫流程名稱並選擇 BPMN 文件');
@@ -232,7 +232,6 @@ const toggleProcessStatus = async (id: string) => {
   }
 };
 
-// 3. 點擊「啟動流程」按鈕
 const showStartProcessDialog = async (processDefinitionId: string) => {
   if (!userStore.isLoggedIn) {
     ElMessage.error('請先登錄');
@@ -259,7 +258,6 @@ const showStartProcessDialog = async (processDefinitionId: string) => {
   }
 };
 
-// 4. 接收動態表單的 Submit 事件
 const handleDynamicSubmit = async (formData: any) => {
   try {
     loading.value = true;
@@ -284,7 +282,6 @@ const handleDynamicSubmit = async (formData: any) => {
   }
 };
 
-// 5. 下載範本邏輯
 const handleDownloadTemplate = async () => {
   try {
     downloadLoading.value = true;
@@ -318,11 +315,27 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-container {
+  padding: 20px;
+}
+.header {
+  margin-bottom: 20px;
+}
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  display: block;
+}
 .label-wrapper {
   text-align: right;
   line-height: 40px;
 }
-/* ★★★ 新增：讓上傳區塊橫向排列並置中對齊 ★★★ */
 .upload-row {
   display: flex;
   align-items: center;

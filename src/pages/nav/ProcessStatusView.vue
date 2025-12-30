@@ -1,9 +1,12 @@
 <template>
     <div class="page-container">
-        <h1 class="page-title">流程狀態查詢</h1>
+        <div class="header">
+            <h1 class="page-title">全域流程監控</h1>
+            <span class="subtitle">監控全系統流程執行狀況，進行異常處理與介入</span>
+        </div>
 
-        <el-form class="form-card">
-            <el-row :gutter="20">
+        <el-form class="filter-form" :inline="true">
+            <el-row :gutter="20" style="width: 100%">
                 <el-col :span="8">
                     <div class="label-wrapper">流程名稱</div>
                 </el-col>
@@ -12,11 +15,8 @@
                         <el-input v-model="searchName" placeholder="輸入流程名稱" :disabled="loading" />
                     </el-form-item>
                 </el-col>
-                <el-col :span="6"></el-col>
-            </el-row>
-            <el-row :gutter="20">
-                <el-col :span="16">
-                    <el-form-item label-width="0" class="button-form-item">
+                <el-col :span="8">
+                    <el-form-item label-width="0">
                         <el-button type="primary" @click="fetchProcesses" :disabled="loading">查詢</el-button>
                     </el-form-item>
                 </el-col>
@@ -24,7 +24,7 @@
         </el-form>
 
         <el-row :gutter="20">
-            <el-col :span="22" :offset="1">
+            <el-col :span="24">
                 <el-table :data="processInstances" class="table-card" border stripe :loading="loading">
                     <el-table-column prop="name" label="流程名稱" min-width="100" />
                     <el-table-column prop="currentTask" label="當前階段" min-width="100" />
@@ -44,7 +44,7 @@
         </el-row>
 
         <el-dialog 
-          title="流程狀態詳情" 
+          title="流程執行狀態" 
           v-model="dialogVisible" 
           width="90%" 
           top="5vh"
@@ -74,7 +74,7 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import BpmnViewer from '../../components/BpmnViewer.vue';
-import ProcessTimeline from '../../components/ProcessTimeline.vue'; // 引入新元件
+import ProcessTimeline from '../../components/ProcessTimeline.vue';
 import { processApi } from '../../api/client';
 import type { ProcessInstance } from '../../api/models';
 
@@ -82,7 +82,7 @@ const searchName = ref('');
 const processInstances = ref<ProcessInstance[]>([]);
 const dialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | string[] | null } | null>(null);
-const currentInstanceId = ref(''); // 用來傳遞給 Timeline
+const currentInstanceId = ref('');
 const loading = ref(false);
 
 const fetchProcesses = async () => {
@@ -112,10 +112,8 @@ const fetchProcesses = async () => {
 const showProcessDiagram = async (id: string) => {
   try {
     loading.value = true;
-    currentInstanceId.value = id; // 設定當前 ID 給 Timeline
+    currentInstanceId.value = id;
     
-    // ★★★ 關鍵修正：必須傳遞物件 { id } 而不是直接傳 id ★★★
-    // 解決 "Required parameter id was null or undefined" 錯誤
     const response = await processApi.getProcessInstanceDiagram({ id });
     
     if (!response.data.bpmnXml) {
@@ -141,6 +139,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-container {
+  padding: 20px;
+}
+.header {
+  margin-bottom: 20px;
+}
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  display: block;
+}
 .label-wrapper {
   text-align: right;
   line-height: 40px;
@@ -151,28 +166,24 @@ onMounted(() => {
   gap: 8px;
   flex-wrap: nowrap;
 }
-
-/* 對話框內容佈局 */
 .dialog-content-wrapper {
   display: flex;
   gap: 20px;
-  height: 70vh; /* 固定高度，內部捲動 */
+  height: 70vh;
 }
-
 .diagram-panel {
-  flex: 2; /* 左側佔 2/3 */
+  flex: 2;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
   background-color: #f5f7fa;
 }
-
 .timeline-panel {
-  flex: 1; /* 右側佔 1/3 */
+  flex: 1;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   padding: 10px;
-  overflow-y: auto; /* 歷程長時可捲動 */
+  overflow-y: auto;
   background-color: #fff;
 }
 </style>

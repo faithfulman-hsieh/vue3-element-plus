@@ -1,9 +1,10 @@
-<!-- src/views/UserView.vue -->
 <template>
   <div class="page-container">
-    <h1 class="page-title">使用者管理</h1>
+    <div class="header">
+      <h1 class="page-title">用戶權限管理</h1>
+      <span class="subtitle">管理系統使用者帳號、角色與權限設定</span>
+    </div>
 
-    <!-- 新增使用者表單 -->
     <el-form :model="newUser" class="form-card">
       <el-row :gutter="20">
         <el-col :span="8">
@@ -56,7 +57,6 @@
       </el-row>
     </el-form>
 
-    <!-- 使用者清單表格 -->
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
         <el-table :data="users" class="table-card" border stripe>
@@ -69,12 +69,11 @@
   </div>
 </template>
 
-<!-- src/views/UserView.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElNotification } from 'element-plus';
-import { userApi } from '~/api/client';
-import type { User, Role } from '~/api/models';
+import { userApi } from '../../api/client';
+import type { User, Role } from '../../api/models';
 
 const newUser = ref({
   name: '',
@@ -183,8 +182,29 @@ onMounted(fetchUsers);
 </script>
 
 <style scoped>
+.page-container {
+  padding: 20px;
+}
+.header {
+  margin-bottom: 20px;
+}
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  display: block;
+}
 .label-wrapper {
   text-align: right;
   line-height: 40px;
+}
+.table-card {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
 }
 </style>

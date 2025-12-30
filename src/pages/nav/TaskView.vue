@@ -1,6 +1,9 @@
 <template>
   <div class="page-container">
-    <h1 class="page-title">我的任務中心</h1>
+    <div class="header">
+      <h1 class="page-title">我的任務中心</h1>
+      <span class="subtitle">處理指派給您的待辦事項，並查看歷史經手紀錄</span>
+    </div>
 
     <el-tabs v-model="activeTab" type="card" @tab-change="handleTabChange" class="task-tabs">
       
@@ -77,7 +80,7 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="currentTask?.name || '處理任務'"
+      :title="currentTask?.name ? `任務處理：${currentTask.name}` : '任務處理'"
       width="600px"
       destroy-on-close
       :close-on-click-modal="false"
@@ -101,7 +104,7 @@
 
     <el-dialog 
       v-model="bpmnDialogVisible" 
-      title="流程狀態" 
+      title="流程執行狀態" 
       width="80%"
       destroy-on-close
     >
@@ -122,7 +125,6 @@ import { taskApi, processApi } from '../../api/client'
 import DynamicForm from '../../components/DynamicForm.vue'
 import BpmnViewer from '../../components/BpmnViewer.vue'
 
-// 移除 variables，回復單純定義
 interface TaskViewModel {
   id: string
   name: string
@@ -193,7 +195,6 @@ const handleProcess = async (row: TaskViewModel) => {
   
   try {
     const taskId = String(row.id)
-    // 呼叫 API，後端會把 todoTitle 等值填入 value 欄位
     const response = await taskApi.getTaskForm({ id: taskId })
     formFields.value = response.data || []
   } catch (error: any) {
@@ -256,16 +257,25 @@ onMounted(() => {
 .page-container {
   padding: 20px;
 }
-.page-title {
+.header {
   margin-bottom: 20px;
-  text-align: center;
+}
+.page-title {
+  margin: 0;
   font-size: 24px;
-  color: #303133;
+  color: var(--el-text-color-primary); 
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  display: block;
 }
 .task-tabs {
-  background-color: #fff;
+  background-color: var(--el-bg-color); 
   padding: 10px;
   border-radius: 4px;
+  border: 1px solid var(--el-border-color-light);
 }
 .table-card {
   width: 100%;
@@ -278,6 +288,6 @@ onMounted(() => {
 .empty-state {
   padding: 20px;
   text-align: center;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 </style>
