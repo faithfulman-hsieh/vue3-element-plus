@@ -68,6 +68,7 @@ import BpmnViewer from '../../components/BpmnViewer.vue';
 import ProcessTimeline from '../../components/ProcessTimeline.vue';
 import { processApi } from '../../api/client';
 import type { ProcessInstance } from '../../api/models';
+// import axios from 'axios'; <-- 移除
 
 const searchName = ref('');
 const processInstances = ref<ProcessInstance[]>([]);
@@ -82,10 +83,12 @@ const filteredList = computed(() => {
     );
 });
 
+// ★★★ 修改：改用 processApi.getMyProcessInstances ★★★
 const fetchProcesses = async () => {
   try {
     loading.value = true;
-    const response = await processApi.getAllInstances();
+    // 使用 API client，不再直接使用 axios
+    const response = await processApi.getMyProcessInstances({}); 
     processInstances.value = response.data || [];
   } catch (error: any) {
     ElMessage.error('無法載入申請紀錄');

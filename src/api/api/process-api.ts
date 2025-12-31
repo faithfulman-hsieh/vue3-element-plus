@@ -14,12 +14,21 @@
 import type { Configuration } from '../configuration';
 import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
 import globalAxios from 'axios';
-import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from '../common';
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
-import type { Process, ProcessRequest, FormField, FlowNode, User, HistoryLog } from '../models';
+import { DUMMY_BASE_URL, assertParamExists, setSearchParams, toPathString, createRequestFunction } from '../common';
+import { BASE_PATH, type RequestArgs, BaseAPI, operationServerMap } from '../base';
+import type { Process, ProcessRequest, FormField, FlowNode, User, HistoryLog, ProcessInstance } from '../models';
 
+/**
+ * ProcessAPIAxiosParamCreator - 参数创建器
+ */
 export const ProcessAPIAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * Deploy a new process with BPMN file
+         * @param {ProcessRequest} request 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         deployProcess: async (request: ProcessRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('deployProcess', 'request', request);
             const localVarPath = `/api/process/deploy`;
@@ -53,6 +62,11 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves all process definitions
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getAllDefinitions: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/process/definitions`;
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -74,6 +88,11 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves all running process instances
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getAllInstances: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/process/instances`;
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -95,6 +114,39 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * ★★★ 新增：獲取我的申請紀錄 ★★★
+         * Retrieves process instances started by current user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getMyProcessInstances: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/process/my-instances`;
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Retrieves process instance diagram and current task
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getProcessInstanceDiagram: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getProcessInstanceDiagram', 'id', id);
             const localVarPath = `/api/process/instances/{id}/diagram`
@@ -118,6 +170,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves process definition diagram
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getProcessDefinitionDiagram: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getProcessDefinitionDiagram', 'id', id);
             const localVarPath = `/api/process/definitions/{id}/diagram`
@@ -141,6 +199,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves form fields for a process definition
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getProcessFormFields: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getProcessFormFields', 'id', id);
             const localVarPath = `/api/process/definitions/{id}/form`
@@ -164,6 +228,40 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * ★★★ 新增：獲取特定節點的表單 (用於跳關) ★★★
+         * @param {string} processInstanceId
+         * @param {string} nodeId
+         * @param {*} [options]
+         */
+        getNodeFormFields: async (processInstanceId: string, nodeId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('getNodeFormFields', 'processInstanceId', processInstanceId);
+            assertParamExists('getNodeFormFields', 'nodeId', nodeId);
+            const localVarPath = `/api/process/instances/{processInstanceId}/nodes/{nodeId}/form`
+                .replace(`{${"processInstanceId"}}`, encodeURIComponent(String(processInstanceId)))
+                .replace(`{${"nodeId"}}`, encodeURIComponent(String(nodeId)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Retrieves form fields for a user task
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getTaskFormFields: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getTaskFormFields', 'id', id);
             const localVarPath = `/api/process/tasks/{id}/form`
@@ -187,6 +285,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Starts a process instance
+         * @param {ProcessRequest} processRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         startProcess: async (processRequest: ProcessRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('startProcess', 'processRequest', processRequest);
             const localVarPath = `/api/process/start`;
@@ -217,6 +321,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Enables or disables a process definition
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         toggleProcessStatus: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('toggleProcessStatus', 'id', id);
             const localVarPath = `/api/process/definitions/{id}/toggle`
@@ -240,6 +350,11 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves all available users for task assignment
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getUsers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/process/users`;
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -261,6 +376,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Retrieves all flow nodes for a process instance
+         * @param {string} processInstanceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getFlowNodes: async (processInstanceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getFlowNodes', 'processInstanceId', processInstanceId);
             const localVarPath = `/api/process/instances/{processInstanceId}/nodes`
@@ -284,6 +405,13 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Reassigns the current task of a process instance to a new assignee
+         * @param {string} processInstanceId 
+         * @param {string} newAssignee 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         reassignTask: async (processInstanceId: string, newAssignee: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('reassignTask', 'processInstanceId', processInstanceId);
             assertParamExists('reassignTask', 'newAssignee', newAssignee);
@@ -311,9 +439,17 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
-        jumpToNode: async (processInstanceId: string, targetNode: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        /**
+         * ★★★ 關鍵修正：jumpToNode 傳送整個物件 JSON ★★★
+         * Jumps the process instance to a specified node
+         * @param {string} processInstanceId 
+         * @param {TaskJumpRequest} taskJumpRequest
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        jumpToNode: async (processInstanceId: string, taskJumpRequest: TaskJumpRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('jumpToNode', 'processInstanceId', processInstanceId);
-            assertParamExists('jumpToNode', 'targetNode', targetNode);
+            assertParamExists('jumpToNode', 'taskJumpRequest', taskJumpRequest);
             const localVarPath = `/api/process/instances/{processInstanceId}/jump`
                 .replace(`{${"processInstanceId"}}`, encodeURIComponent(String(processInstanceId)));
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -331,13 +467,22 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
-            localVarRequestOptions.data = JSON.stringify({ targetNode });
+            
+            // ★★★ 重點：這裡必須是 JSON.stringify(taskJumpRequest) ★★★
+            // 因為後端需要的是一個物件 { targetNode: "xxx", variables: {...} }
+            localVarRequestOptions.data = JSON.stringify(taskJumpRequest);
 
             return {
                 url: toPathString(localVarUrlObj),
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Downloads a BPMN process template file
+         * @param {string} filename 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         downloadTemplate: async (filename: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('downloadTemplate', 'filename', filename);
             const localVarPath = `/api/process/template/${filename}`;
@@ -348,7 +493,7 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
             }
 
             const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
-            localVarRequestOptions.responseType = 'blob'; // 重要：設定 responseType 為 blob
+            localVarRequestOptions.responseType = 'blob'; 
 
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = { ...headersFromBaseOptions, ...options.headers };
@@ -358,7 +503,13 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
-        // ★★★ 新增：獲取流程歷程 ★★★
+        /**
+         * ★★★ 新增：獲取流程歷程 ★★★
+         * Retrieves execution history for a process instance
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
         getProcessHistory: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             assertParamExists('getProcessHistory', 'id', id);
             const localVarPath = `/api/process/instances/{id}/history`
@@ -385,10 +536,12 @@ export const ProcessAPIAxiosParamCreator = function (configuration?: Configurati
     };
 };
 
+/**
+ * ProcessAPIFp - 函数式编程接口
+ */
 export const ProcessAPIFp = function (configuration?: Configuration) {
     const localVarAxiosParamCreator = ProcessAPIAxiosParamCreator(configuration);
     return {
-        // ... (其他方法保持不變) ...
         async deployProcess(request: ProcessRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Process>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.deployProcess(request, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -407,6 +560,12 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getAllInstances']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        async getMyProcessInstances(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Process[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getMyProcessInstances(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getMyProcessInstances']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
         async getProcessInstanceDiagram(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ bpmnXml: string, currentTask: string | null }>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getProcessInstanceDiagram(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -423,6 +582,12 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getProcessFormFields(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getProcessFormFields']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        async getNodeFormFields(processInstanceId: string, nodeId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<FormField[]>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getNodeFormFields(processInstanceId, nodeId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getNodeFormFields']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         async getTaskFormFields(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<FormField[]>> {
@@ -461,8 +626,8 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.reassignTask']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
-        async jumpToNode(processInstanceId: string, targetNode: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.jumpToNode(processInstanceId, targetNode, options);
+        async jumpToNode(processInstanceId: string, taskJumpRequest: TaskJumpRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.jumpToNode(processInstanceId, taskJumpRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.jumpToNode']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -473,7 +638,6 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.downloadTemplate']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
-        // ★★★ 新增：獲取流程歷程 ★★★
         async getProcessHistory(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<HistoryLog[]>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getProcessHistory(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -483,10 +647,12 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
     };
 };
 
+/**
+ * ProcessAPIFactory - 工厂方法
+ */
 export const ProcessAPIFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
     const localVarFp = ProcessAPIFp(configuration);
     return {
-        // ... (其他方法保持不變) ...
         deployProcess(requestParameters: ProcessAPIDeployProcessRequest, options?: RawAxiosRequestConfig): AxiosPromise<Process> {
             return localVarFp.deployProcess(requestParameters.request, options).then((request) => request(axios, basePath));
         },
@@ -496,6 +662,9 @@ export const ProcessAPIFactory = function (configuration?: Configuration, basePa
         getAllInstances(options?: RawAxiosRequestConfig): AxiosPromise<Process[]> {
             return localVarFp.getAllInstances(options).then((request) => request(axios, basePath));
         },
+        getMyProcessInstances(options?: RawAxiosRequestConfig): AxiosPromise<Process[]> {
+            return localVarFp.getMyProcessInstances(options).then((request) => request(axios, basePath));
+        },
         getProcessInstanceDiagram(requestParameters: ProcessAPIGetProcessInstanceDiagramRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ bpmnXml: string, currentTask: string | null }> {
             return localVarFp.getProcessInstanceDiagram(requestParameters.id, options).then((request) => request(axios, basePath));
         },
@@ -504,6 +673,9 @@ export const ProcessAPIFactory = function (configuration?: Configuration, basePa
         },
         getProcessFormFields(requestParameters: ProcessAPIGetProcessFormFieldsRequest, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
             return localVarFp.getProcessFormFields(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        getNodeFormFields(processInstanceId: string, nodeId: string, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
+            return localVarFp.getNodeFormFields(processInstanceId, nodeId, options).then((request) => request(axios, basePath));
         },
         getTaskFormFields(requestParameters: ProcessAPIGetTaskFormFieldsRequest, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
             return localVarFp.getTaskFormFields(requestParameters.id, options).then((request) => request(axios, basePath));
@@ -524,18 +696,22 @@ export const ProcessAPIFactory = function (configuration?: Configuration, basePa
             return localVarFp.reassignTask(requestParameters.processInstanceId, requestParameters.newAssignee, options).then((request) => request(axios, basePath));
         },
         jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(axios, basePath));
+            // 建構 TaskJumpRequest 物件
+            const taskJumpRequest: TaskJumpRequest = { targetNode: requestParameters.targetNode, variables: requestParameters.variables };
+            return localVarFp.jumpToNode(requestParameters.processInstanceId, taskJumpRequest, options).then((request) => request(axios, basePath));
         },
         downloadTemplate(filename: string, options?: RawAxiosRequestConfig): AxiosPromise<Blob> {
             return localVarFp.downloadTemplate(filename, options).then((request) => request(axios, basePath));
         },
-        // ★★★ 新增：獲取流程歷程 ★★★
         getProcessHistory(requestParameters: ProcessAPIGetProcessHistoryRequest, options?: RawAxiosRequestConfig): AxiosPromise<HistoryLog[]> {
             return localVarFp.getProcessHistory(requestParameters.id, options).then((request) => request(axios, basePath));
         },
     };
 };
 
+/**
+ * Request Interfaces (请求参数接口)
+ */
 export interface ProcessAPIDeployProcessRequest {
     readonly request: ProcessRequest;
 }
@@ -576,13 +752,16 @@ export interface ProcessAPIReassignTaskRequest {
 export interface ProcessAPIJumpToNodeRequest {
     readonly processInstanceId: string;
     readonly targetNode: string;
+    readonly variables?: { [key: string]: any };
 }
 
-// ★★★ 新增介面：歷史紀錄請求參數 ★★★
 export interface ProcessAPIGetProcessHistoryRequest {
     readonly id: string;
 }
 
+/**
+ * ProcessAPI - 面向对象的 API 类
+ */
 export class ProcessAPI extends BaseAPI {
     public deployProcess(requestParameters: ProcessAPIDeployProcessRequest, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).deployProcess(requestParameters.request, options).then((request) => request(this.axios, this.basePath));
@@ -596,6 +775,10 @@ export class ProcessAPI extends BaseAPI {
         return ProcessAPIFp(this.configuration).getAllInstances(options).then((request) => request(this.axios, this.basePath));
     }
 
+    public getMyProcessInstances(options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).getMyProcessInstances(options).then((request) => request(this.axios, this.basePath));
+    }
+
     public getProcessInstanceDiagram(requestParameters: ProcessAPIGetProcessInstanceDiagramRequest, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).getProcessInstanceDiagram(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
@@ -606,6 +789,10 @@ export class ProcessAPI extends BaseAPI {
 
     public getProcessFormFields(requestParameters: ProcessAPIGetProcessFormFieldsRequest, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).getProcessFormFields(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    public getNodeFormFields(processInstanceId: string, nodeId: string, options?: RawAxiosRequestConfig) {
+        return ProcessAPIFp(this.configuration).getNodeFormFields(processInstanceId, nodeId, options).then((request) => request(this.axios, this.basePath));
     }
 
     public getTaskFormFields(requestParameters: ProcessAPIGetTaskFormFieldsRequest, options?: RawAxiosRequestConfig) {
@@ -633,24 +820,32 @@ export class ProcessAPI extends BaseAPI {
     }
 
     public jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig) {
-        return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, options).then((request) => request(this.axios, this.basePath));
+        return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, requestParameters.variables, options).then((request) => request(this.axios, this.basePath));
     }
 
     public downloadTemplate(filename: string, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).downloadTemplate(filename, options).then((request) => request(this.axios, this.basePath));
     }
 
-    // ★★★ 新增：獲取流程歷程 ★★★
     public getProcessHistory(requestParameters: ProcessAPIGetProcessHistoryRequest, options?: RawAxiosRequestConfig) {
         return ProcessAPIFp(this.configuration).getProcessHistory(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
+// Data Interfaces (模型接口)
+export interface TaskJumpRequest {
+    targetNode: string;
+    variables?: { [key: string]: any };
+}
+
 export interface FormField {
     key: string;
     label: string;
-    type: 'text' | 'select';
+    type: 'text' | 'select' | 'number' | 'date' | 'switch';
     options?: { label: string; value: string }[];
+    required?: boolean;
+    value?: any;
+    disabled?: boolean;
 }
 
 export interface FlowNode {
@@ -663,7 +858,6 @@ export interface User {
     value: string;
 }
 
-// 記得要確保 HistoryLog 有在 src/api/models/index.ts 或這裡定義
 export interface HistoryLog {
     activityName?: string;
     activityType?: string;
