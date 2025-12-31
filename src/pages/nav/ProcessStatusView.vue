@@ -5,27 +5,19 @@
             <span class="subtitle">監控全系統流程執行狀況，進行異常處理與介入</span>
         </div>
 
-        <el-form class="filter-form" :inline="true">
-            <el-row :gutter="20" style="width: 100%">
-                <el-col :span="8">
-                    <div class="label-wrapper">流程名稱</div>
-                </el-col>
-                <el-col :span="8">
-                    <el-form-item prop="searchName" label-width="0">
-                        <el-input v-model="searchName" placeholder="輸入流程名稱" :disabled="loading" />
-                    </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                    <el-form-item label-width="0">
-                        <el-button type="primary" @click="fetchProcesses" :disabled="loading">查詢</el-button>
-                    </el-form-item>
-                </el-col>
-            </el-row>
-        </el-form>
+        <div class="search-bar">
+            <el-input 
+                v-model="searchName" 
+                placeholder="輸入流程名稱進行篩選..." 
+                :prefix-icon="Search"
+                clearable
+                class="search-input"
+            />
+        </div>
 
         <el-row :gutter="20">
             <el-col :span="24">
-                <el-table :data="processInstances" class="table-card" border stripe :loading="loading">
+                <el-table :data="filteredInstances" class="table-card" border stripe :loading="loading">
                     <el-table-column prop="name" label="流程名稱" min-width="100" />
                     <el-table-column prop="currentTask" label="當前階段" min-width="100" />
                     <el-table-column prop="assignee" label="執行者" min-width="60" />
@@ -51,7 +43,13 @@
             </el-col>
         </el-row>
 
-        <el-dialog title="流程執行狀態" v-model="dialogVisible" width="90%" top="5vh" destroy-on-close>
+        <el-dialog 
+          title="流程執行狀態" 
+          v-model="dialogVisible" 
+          width="90%" 
+          top="5vh"
+          destroy-on-close
+        >
             <div class="dialog-content-wrapper">
                 <div class="diagram-panel">
                     <bpmn-viewer 
@@ -61,7 +59,10 @@
                     />
                 </div>
                 <div class="timeline-panel">
-                    <process-timeline v-if="currentInstanceId" :instanceId="currentInstanceId" />
+                    <process-timeline 
+                        v-if="currentInstanceId"
+                        :instanceId="currentInstanceId" 
+                    />
                 </div>
             </div>
         </el-dialog>
@@ -121,8 +122,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
+import { Search } from '@element-plus/icons-vue'; // 引入放大鏡
 import BpmnViewer from '../../components/BpmnViewer.vue';
 import ProcessTimeline from '../../components/ProcessTimeline.vue';
 import DynamicForm from '../../components/DynamicForm.vue';
@@ -130,12 +132,13 @@ import { processApi } from '../../api/client';
 import type { ProcessInstance, FormField } from '../../api/models';
 
 const searchName = ref('');
-const processInstances = ref<ProcessInstance[]>([]);
+const processInstances = ref<ProcessInstance[]>([]); // 存放所有原始資料
 const dialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | string[] | null } | null>(null);
 const currentInstanceId = ref('');
 const loading = ref(false);
 
+// 跳關相關狀態
 const jumpDialogVisible = ref(false);
 const formLoading = ref(false);
 const selectedTargetNode = ref('');
@@ -144,17 +147,23 @@ const currentJumpInstanceId = ref('');
 const jumpFormFields = ref<FormField[]>([]); 
 const jumpVariablesJson = ref('{}');   
 
+// ★★★ Computed: 前端即時過濾 ★★★
+const filteredInstances = computed(() => {
+    if (!searchName.value.trim()) {
+        return processInstances.value;
+    }
+    const keyword = searchName.value.trim().toLowerCase();
+    return processInstances.value.filter(instance => 
+        instance.name.toLowerCase().includes(keyword)
+    );
+});
+
 const fetchProcesses = async () => {
   try {
     loading.value = true;
     const response = await processApi.getAllInstances();
-    let instances = response.data || [];
-    if (searchName.value.trim()) {
-      instances = instances.filter(instance => 
-        instance.name.toLowerCase().includes(searchName.value.trim().toLowerCase())
-      );
-    }
-    processInstances.value = instances;
+    // 儲存完整資料，不在此處過濾
+    processInstances.value = response.data || [];
   } catch (error: any) {
     ElMessage.error('獲取流程實例失敗');
   } finally {
@@ -195,7 +204,7 @@ const openJumpDialog = async (row: any) => {
         const res = await processApi.getFlowNodes({ processInstanceId: row.id });
         availableNodes.value = res.data;
     } catch (err: any) {
-        ElMessage.warning(err.response?.data?.message || '無法讀取流程節點，可能流程已結束');
+        ElMessage.warning(err.response?.data?.message || '無法讀取流程節點');
     }
 };
 
@@ -234,7 +243,6 @@ const handleManualJump = async () => {
 
 const executeJump = async (variables: any) => {
     try {
-        // 這裡會將包含 variables 的完整物件傳給 API
         await processApi.jumpToNode({
             processInstanceId: currentJumpInstanceId.value,
             targetNode: selectedTargetNode.value,
@@ -272,9 +280,9 @@ onMounted(() => {
   margin-top: 5px;
   display: block;
 }
-.label-wrapper {
-  text-align: right;
-  line-height: 40px;
+.search-bar {
+    margin-bottom: 20px;
+    width: 300px; /* 限制寬度，保持簡潔 */
 }
 .action-buttons {
   display: flex;

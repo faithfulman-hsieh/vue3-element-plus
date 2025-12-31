@@ -19,7 +19,7 @@
               :type="getStatusType(activity.status)" 
               effect="light"
             >
-              {{ activity.status === 'Running' ? '進行中' : '已完成' }}
+              {{ getStatusText(activity.status) }}
             </el-tag>
           </div>
           
@@ -28,7 +28,7 @@
               <span class="label">處理人：</span>
               <span class="value">{{ activity.assignee }}</span>
             </div>
-            <div class="info-row" v-if="activity.activityType === 'userTask' && activity.duration && activity.duration !== '-'">
+            <div class="info-row" v-if="activity.activityType === 'userTask' && activity.status !== 'Skipped' && activity.duration && activity.duration !== '-'">
               <span class="label">耗時：</span>
               <span class="value">{{ activity.duration }}</span>
             </div>
@@ -55,7 +55,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-// ★★★ 修改 1: 引入 processApi 而不是 axios ★★★
 import { processApi } from '../api/client'
 import { ElMessage } from 'element-plus'
 
@@ -71,26 +70,37 @@ const activities = ref<any[]>([])
 const fetchHistory = async () => {
   if (!props.instanceId) return
   try {
-    // ★★★ 修改 2: 改用 client 呼叫，確保路徑與 Token 正確 ★★★
-    // 注意：參數必須包成物件 { id: props.instanceId }
     const res = await processApi.getProcessHistory({ id: props.instanceId })
     activities.value = res.data
   } catch (err: any) {
     console.error('獲取歷史失敗', err)
-    // 顯示錯誤訊息以便除錯
     ElMessage.error(err.response?.data?.message || '無法載入歷程')
   }
 }
 
+// ★★★ 修改：增加 Skipped 的顏色判斷 ★★★
 const getActivityTypeColor = (activity: any) => {
   if (activity.status === 'Running') return 'primary'
+  if (activity.status === 'Skipped') return 'warning' // 跳過的顯示黃色
   if (activity.activityType === 'startEvent') return 'info'
   if (activity.activityType === 'endEvent') return 'success'
-  return 'primary'
+  return 'primary' // 完成的預設藍色，或可改 'success'
 }
 
+// ★★★ 修改：增加 Skipped 的 Tag 樣式 ★★★
 const getStatusType = (status: string) => {
-  return status === 'Running' ? 'primary' : 'success'
+  if (status === 'Running') return 'primary'
+  if (status === 'Skipped') return 'warning'
+  return 'success'
+}
+
+// ★★★ 新增：狀態文字轉換 ★★★
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'Running': return '進行中'
+    case 'Skipped': return '已跳過'
+    default: return '已完成'
+  }
 }
 
 watch(() => props.instanceId, () => {

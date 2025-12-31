@@ -596,8 +596,8 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getTaskFormFields']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
-        async startProcess(processRequest: ProcessRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Process>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.startProcess(processRequest, options);
+        async startProcess(request: ProcessRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Process>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.startProcess(request, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.startProcess']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -628,9 +628,7 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
         },
         async jumpToNode(processInstanceId: string, taskJumpRequest: TaskJumpRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.jumpToNode(processInstanceId, taskJumpRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['ProcessAPI.jumpToNode']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
         async downloadTemplate(filename: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Blob>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.downloadTemplate(filename, options);
@@ -643,68 +641,6 @@ export const ProcessAPIFp = function (configuration?: Configuration) {
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ProcessAPI.getProcessHistory']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-    };
-};
-
-/**
- * ProcessAPIFactory - 工厂方法
- */
-export const ProcessAPIFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-    const localVarFp = ProcessAPIFp(configuration);
-    return {
-        deployProcess(requestParameters: ProcessAPIDeployProcessRequest, options?: RawAxiosRequestConfig): AxiosPromise<Process> {
-            return localVarFp.deployProcess(requestParameters.request, options).then((request) => request(axios, basePath));
-        },
-        getAllDefinitions(options?: RawAxiosRequestConfig): AxiosPromise<Process[]> {
-            return localVarFp.getAllDefinitions(options).then((request) => request(axios, basePath));
-        },
-        getAllInstances(options?: RawAxiosRequestConfig): AxiosPromise<Process[]> {
-            return localVarFp.getAllInstances(options).then((request) => request(axios, basePath));
-        },
-        getMyProcessInstances(options?: RawAxiosRequestConfig): AxiosPromise<Process[]> {
-            return localVarFp.getMyProcessInstances(options).then((request) => request(axios, basePath));
-        },
-        getProcessInstanceDiagram(requestParameters: ProcessAPIGetProcessInstanceDiagramRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ bpmnXml: string, currentTask: string | null }> {
-            return localVarFp.getProcessInstanceDiagram(requestParameters.id, options).then((request) => request(axios, basePath));
-        },
-        getProcessDefinitionDiagram(requestParameters: ProcessAPIGetProcessDefinitionDiagramRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ bpmnXml: string, currentTask: string | null }> {
-            return localVarFp.getProcessDefinitionDiagram(requestParameters.id, options).then((request) => request(axios, basePath));
-        },
-        getProcessFormFields(requestParameters: ProcessAPIGetProcessFormFieldsRequest, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
-            return localVarFp.getProcessFormFields(requestParameters.id, options).then((request) => request(axios, basePath));
-        },
-        getNodeFormFields(processInstanceId: string, nodeId: string, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
-            return localVarFp.getNodeFormFields(processInstanceId, nodeId, options).then((request) => request(axios, basePath));
-        },
-        getTaskFormFields(requestParameters: ProcessAPIGetTaskFormFieldsRequest, options?: RawAxiosRequestConfig): AxiosPromise<FormField[]> {
-            return localVarFp.getTaskFormFields(requestParameters.id, options).then((request) => request(axios, basePath));
-        },
-        startProcess(requestParameters: ProcessAPIStartProcessRequest, options?: RawAxiosRequestConfig): AxiosPromise<Process> {
-            return localVarFp.startProcess(requestParameters.processRequest, options).then((request) => request(axios, basePath));
-        },
-        toggleProcessStatus(requestParameters: ProcessAPIToggleProcessStatusRequest, options?: RawAxiosRequestConfig): AxiosPromise<Process> {
-            return localVarFp.toggleProcessStatus(requestParameters.id, options).then((request) => request(axios, basePath));
-        },
-        getUsers(options?: RawAxiosRequestConfig): AxiosPromise<User[]> {
-            return localVarFp.getUsers(options).then((request) => request(axios, basePath));
-        },
-        getFlowNodes(requestParameters: ProcessAPIGetFlowNodesRequest, options?: RawAxiosRequestConfig): AxiosPromise<FlowNode[]> {
-            return localVarFp.getFlowNodes(requestParameters.processInstanceId, options).then((request) => request(axios, basePath));
-        },
-        reassignTask(requestParameters: ProcessAPIReassignTaskRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.reassignTask(requestParameters.processInstanceId, requestParameters.newAssignee, options).then((request) => request(axios, basePath));
-        },
-        jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            // 建構 TaskJumpRequest 物件
-            const taskJumpRequest: TaskJumpRequest = { targetNode: requestParameters.targetNode, variables: requestParameters.variables };
-            return localVarFp.jumpToNode(requestParameters.processInstanceId, taskJumpRequest, options).then((request) => request(axios, basePath));
-        },
-        downloadTemplate(filename: string, options?: RawAxiosRequestConfig): AxiosPromise<Blob> {
-            return localVarFp.downloadTemplate(filename, options).then((request) => request(axios, basePath));
-        },
-        getProcessHistory(requestParameters: ProcessAPIGetProcessHistoryRequest, options?: RawAxiosRequestConfig): AxiosPromise<HistoryLog[]> {
-            return localVarFp.getProcessHistory(requestParameters.id, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -820,7 +756,12 @@ export class ProcessAPI extends BaseAPI {
     }
 
     public jumpToNode(requestParameters: ProcessAPIJumpToNodeRequest, options?: RawAxiosRequestConfig) {
-        return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, requestParameters.targetNode, requestParameters.variables, options).then((request) => request(this.axios, this.basePath));
+        // ★★★ 修正點：建構 TaskJumpRequest 物件，確保符合 API 定義 ★★★
+        const taskJumpRequest: TaskJumpRequest = { 
+            targetNode: requestParameters.targetNode, 
+            variables: requestParameters.variables 
+        };
+        return ProcessAPIFp(this.configuration).jumpToNode(requestParameters.processInstanceId, taskJumpRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     public downloadTemplate(filename: string, options?: RawAxiosRequestConfig) {
