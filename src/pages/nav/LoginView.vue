@@ -46,7 +46,6 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '~/stores/userStore';
 import { authApi } from '~/api/client';
-// 改用 ElMessage，它通常比 Notification 更不容易出錯
 import { ElMessage } from 'element-plus'; 
 import type { AuthRequest } from '~/api/models';
 
@@ -74,31 +73,24 @@ const handleSubmit = async () => {
   } catch (error: any) {
     console.log('捕獲到登入錯誤:', error);
 
-    // ★★★ 強力錯誤解析邏輯 ★★★
     let showMsg = '';
     const responseData = error.response?.data;
 
     if (responseData) {
-        // 情況 1: 後端回傳標準 JSON { "message": "..." }
         if (typeof responseData === 'object' && responseData.message) {
             showMsg = responseData.message;
         } 
-        // 情況 2: 後端直接回傳字串
         else if (typeof responseData === 'string') {
             showMsg = responseData;
         }
-        // 情況 3: 其他未知的 JSON 結構，直接轉字串給使用者看
         else {
             showMsg = JSON.stringify(responseData);
         }
     } else {
-        // 情況 4: 網路錯誤或沒有 response (例如後端沒開)
         showMsg = error.message || '無法連接伺服器';
     }
 
     console.log('準備顯示錯誤訊息:', showMsg);
-
-    // 顯示錯誤 (使用 ElMessage.error)
     ElMessage.error(showMsg);
 
   } finally {
@@ -118,14 +110,16 @@ const handleSubmit = async () => {
   text-align: center;
   margin-bottom: 30px;
   font-size: 28px;
-  color: #303133;
+  /* ★★★ 修正：使用變數取代 #303133，自動適應暗色模式 ★★★ */
+  color: var(--el-text-color-primary);
 }
 
 .label-wrapper {
   text-align: right;
   line-height: 32px;
   font-weight: 500;
-  color: #606266;
+  /* ★★★ 修正：使用變數取代 #606266，自動適應暗色模式 ★★★ */
+  color: var(--el-text-color-regular);
 }
 
 .button-form-item {
