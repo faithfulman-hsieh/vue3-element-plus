@@ -57,10 +57,9 @@ import DoingIcon from './icons/IconDoing.vue';
         <FunctionIcon />
       </template>
       <template #heading>動態流程/表單初版</template>
-      2025/12 - 支援流程版本管理，允許流程隨業務變化而更新；
-      動態調整流程（如修改流程路徑）；
-      流程狀態查詢，查看目前有哪些流程正在執行；
-      動態表單（Dynamic Form），允許不同流程階段有不同的輸入字段。
+      2025/12 - 支援流程版本管理，允許流程隨業務變化而更新，可因應 bpmn.xml 定義來動態調整流程（如修改流程路徑）；
+      流程狀態查詢，查看目前有哪些流程正在執行，支援友善的流程管理機制（如跳關等）；
+      動態表單（Dynamic Form），允許不同流程階段有不同的輸入字段，同時支援流程中的平行簽核、會簽。
     </WelcomeItem>
 
     <WelcomeItem>
@@ -69,8 +68,6 @@ import DoingIcon from './icons/IconDoing.vue';
       </template>
       <template #heading>現正進行中</template>
       提供 角色與權限管理，確保不同用戶在適當的階段執行對應任務；
-      更友善的流程管理機制（如跳關等）；
-      更貼近使用者的業務情境。
     </WelcomeItem>
   </div>
 </template>
