@@ -51,6 +51,34 @@ export const TaskAPIAxiosParamCreator = function (configuration?: Configuration)
             };
         },
         /**
+         * ★★★ 新增：獲取可認領的群組任務 ★★★
+         * Retrieves unassigned tasks for candidate groups
+         * @summary Get group tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getGroupTasks: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/task/group-tasks`;
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Retrieves completed tasks assigned to the current user
          * @summary Get user's history tasks
          * @param {*} [options] Override http request option.
@@ -65,6 +93,66 @@ export const TaskAPIAxiosParamCreator = function (configuration?: Configuration)
             }
 
             const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * ★★★ 新增：簽收任務 ★★★
+         * Assign the task to the current user
+         * @summary Claim a task
+         * @param {string} id
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        claimTask: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('claimTask', 'id', id);
+            const localVarPath = `/api/task/{id}/claim`.replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers };
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * ★★★ 新增：反簽收任務 ★★★
+         * Release the task back to group
+         * @summary Unclaim a task
+         * @param {string} id
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        unclaimTask: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            assertParamExists('unclaimTask', 'id', id);
+            const localVarPath = `/api/task/{id}/unclaim`.replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options };
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -184,70 +272,40 @@ export const TaskAPIAxiosParamCreator = function (configuration?: Configuration)
 export const TaskAPIFp = function (configuration?: Configuration) {
     const localVarAxiosParamCreator = TaskAPIAxiosParamCreator(configuration);
     return {
-        /**
-         * Retrieves tasks assigned to the current user
-         * @summary Get user's tasks
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async getMyTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Task[]>> {
+        async getMyTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TaskViewModel>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getMyTasks(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['TaskAPI.getMyTasks']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
-        /**
-         * Retrieves completed tasks assigned to the current user
-         * @summary Get user's history tasks
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async getHistoryTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Task[]>> {
+        // ★★★ 新增 ★★★
+        async getGroupTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TaskViewModel>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getGroupTasks(options);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
+        },
+        async getHistoryTasks(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<TaskViewModel>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getHistoryTasks(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['TaskAPI.getHistoryTasks']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
-        /**
-         * Retrieves the form structure for a task
-         * @summary Get task form
-         * @param {string} id
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
+        // ★★★ 新增 ★★★
+        async claimTask(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.claimTask(id, options);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
+        },
+        // ★★★ 新增 ★★★
+        async unclaimTask(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.unclaimTask(id, options);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
+        },
         async getTaskForm(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<{ key: string; label: string; type: string; options?: Array<{ label: string; value: string }> }>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getTaskForm(id, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['TaskAPI.getTaskForm']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
-        /**
-         * Reassigns a task to a new user
-         * @summary Reassign task
-         * @param {string} id
-         * @param {TaskReassignRequest} taskReassignRequest
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
         async reassignTask(id: string, taskReassignRequest: TaskReassignRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.reassignTask(id, taskReassignRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['TaskAPI.reassignTask']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
-        /**
-         * Submits form data for a task
-         * @summary Submit task form
-         * @param {string} id
-         * @param {TaskFormRequest} taskFormRequest
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
         async submitTaskForm(id: string, taskFormRequest: TaskFormRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitTaskForm(id, taskFormRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['TaskAPI.submitTaskForm']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, basePath);
         },
     };
 };
@@ -259,181 +317,95 @@ export const TaskAPIFp = function (configuration?: Configuration) {
 export const TaskAPIFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
     const localVarFp = TaskAPIFp(configuration);
     return {
-        /**
-         * Retrieves tasks assigned to the current user
-         * @summary Get user's tasks
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getMyTasks(options?: RawAxiosRequestConfig): AxiosPromise<Task[]> {
+        getMyTasks(options?: RawAxiosRequestConfig): AxiosPromise<Array<TaskViewModel>> {
             return localVarFp.getMyTasks(options).then((request) => request(axios, basePath));
         },
-        /**
-         * Retrieves completed tasks assigned to the current user
-         * @summary Get user's history tasks
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHistoryTasks(options?: RawAxiosRequestConfig): AxiosPromise<Task[]> {
+        // ★★★ 新增 ★★★
+        getGroupTasks(options?: RawAxiosRequestConfig): AxiosPromise<Array<TaskViewModel>> {
+            return localVarFp.getGroupTasks(options).then((request) => request(axios, basePath));
+        },
+        getHistoryTasks(options?: RawAxiosRequestConfig): AxiosPromise<Array<TaskViewModel>> {
             return localVarFp.getHistoryTasks(options).then((request) => request(axios, basePath));
         },
-        /**
-         * Retrieves the form structure for a task
-         * @summary Get task form
-         * @param {TaskAPIGetTaskFormRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
+        // ★★★ 新增 ★★★
+        claimTask(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.claimTask(id, options).then((request) => request(axios, basePath));
+        },
+        // ★★★ 新增 ★★★
+        unclaimTask(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.unclaimTask(id, options).then((request) => request(axios, basePath));
+        },
         getTaskForm(requestParameters: TaskAPIGetTaskFormRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<{ key: string; label: string; type: string; options?: Array<{ label: string; value: string }> }>> {
             return localVarFp.getTaskForm(requestParameters.id, options).then((request) => request(axios, basePath));
         },
-        /**
-         * Reassigns a task to a new user
-         * @summary Reassign task
-         * @param {TaskAPIReassignTaskRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
         reassignTask(requestParameters: TaskAPIReassignTaskRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.reassignTask(requestParameters.id, requestParameters.taskReassignRequest, options).then((request) => request(axios, basePath));
         },
-        /**
-         * Submits form data for a task
-         * @summary Submit task form
-         * @param {TaskAPISubmitTaskFormRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
         submitTaskForm(requestParameters: TaskAPISubmitTaskFormRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.submitTaskForm(requestParameters.id, requestParameters.taskFormRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
 
-/**
- * Request parameters for getTaskForm operation in TaskAPI.
- * @export
- * @interface TaskAPIGetTaskFormRequest
- */
 export interface TaskAPIGetTaskFormRequest {
     readonly id: string;
 }
 
-/**
- * Request parameters for reassignTask operation in TaskAPI.
- * @export
- * @interface TaskAPIReassignTaskRequest
- */
 export interface TaskAPIReassignTaskRequest {
     readonly id: string;
     readonly taskReassignRequest: TaskReassignRequest;
 }
 
-/**
- * Request parameters for submitTaskForm operation in TaskAPI.
- * @export
- * @interface TaskAPISubmitTaskFormRequest
- */
 export interface TaskAPISubmitTaskFormRequest {
     readonly id: string;
     readonly taskFormRequest: TaskFormRequest;
 }
 
-/**
- * TaskAPI - object-oriented interface
- * @export
- * @class TaskAPI
- * @extends {BaseAPI}
- */
 export class TaskAPI extends BaseAPI {
-    /**
-     * Retrieves tasks assigned to the current user
-     * @summary Get user's tasks
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof TaskAPI
-     */
     public getMyTasks(options?: RawAxiosRequestConfig) {
         return TaskAPIFp(this.configuration).getMyTasks(options).then((request) => request(this.axios, this.basePath));
     }
-
-    /**
-     * Retrieves completed tasks assigned to the current user
-     * @summary Get user's history tasks
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof TaskAPI
-     */
+    // ★★★ 新增 ★★★
+    public getGroupTasks(options?: RawAxiosRequestConfig) {
+        return TaskAPIFp(this.configuration).getGroupTasks(options).then((request) => request(this.axios, this.basePath));
+    }
     public getHistoryTasks(options?: RawAxiosRequestConfig) {
         return TaskAPIFp(this.configuration).getHistoryTasks(options).then((request) => request(this.axios, this.basePath));
     }
-
-    /**
-     * Retrieves the form structure for a task
-     * @summary Get task form
-     * @param {TaskAPIGetTaskFormRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof TaskAPI
-     */
+    // ★★★ 新增 ★★★
+    public claimTask(id: string, options?: RawAxiosRequestConfig) {
+        return TaskAPIFp(this.configuration).claimTask(id, options).then((request) => request(this.axios, this.basePath));
+    }
+    // ★★★ 新增 ★★★
+    public unclaimTask(id: string, options?: RawAxiosRequestConfig) {
+        return TaskAPIFp(this.configuration).unclaimTask(id, options).then((request) => request(this.axios, this.basePath));
+    }
     public getTaskForm(requestParameters: TaskAPIGetTaskFormRequest, options?: RawAxiosRequestConfig) {
         return TaskAPIFp(this.configuration).getTaskForm(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
-
-    /**
-     * Reassigns a task to a new user
-     * @summary Reassign task
-     * @param {TaskAPIReassignTaskRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof TaskAPI
-     */
     public reassignTask(requestParameters: TaskAPIReassignTaskRequest, options?: RawAxiosRequestConfig) {
         return TaskAPIFp(this.configuration).reassignTask(requestParameters.id, requestParameters.taskReassignRequest, options).then((request) => request(this.axios, this.basePath));
     }
-
-    /**
-     * Submits form data for a task
-     * @summary Submit task form
-     * @param {TaskAPISubmitTaskFormRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof TaskAPI
-     */
     public submitTaskForm(requestParameters: TaskAPISubmitTaskFormRequest, options?: RawAxiosRequestConfig) {
         return TaskAPIFp(this.configuration).submitTaskForm(requestParameters.id, requestParameters.taskFormRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
-/**
- * Request object for submitting task form data
- * @export
- * @interface TaskFormRequest
- */
 export interface TaskFormRequest {
     formData: { [key: string]: any };
 }
 
-/**
- * Request object for reassigning a task
- * @export
- * @interface TaskReassignRequest
- */
 export interface TaskReassignRequest {
     assignee: string;
 }
 
-/**
- * Task interface
- * @export
- * @interface Task
- */
-export interface Task {
-    id?: string;
-    name?: string;
-    processName?: string;
-    assignee?: string;
-    createTime?: string;
-    processInstanceId?: string;
-    currentAssignee?: string; // ★★★ 新增：當前處理人員 (用於經手任務)
+// 補上 TaskViewModel 介面，避免 any
+export interface TaskViewModel {
+    id: string;
+    name: string;
+    processName: string;
+    assignee: string;
+    createTime: string;
+    processInstanceId: string;
+    currentAssignee?: string;
 }

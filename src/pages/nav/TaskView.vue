@@ -7,6 +7,37 @@
 
     <el-tabs v-model="activeTab" type="card" @tab-change="handleTabChange" class="task-tabs">
       
+      <el-tab-pane label="可認領任務" name="group">
+        <el-table 
+          :data="groupData" 
+          class="table-card" 
+          border 
+          stripe 
+          v-loading="loading"
+        >
+          <el-table-column prop="name" label="任務名稱" min-width="180" />
+          <el-table-column prop="processName" label="流程名稱" min-width="150">
+            <template #default="{ row }">
+              <el-tag type="warning">{{ row.processName }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="createTime" label="收到時間" min-width="180" />
+          <el-table-column label="操作" width="180" fixed="right" align="center">
+            <template #default="{ row }">
+              <div class="action-buttons">
+                <el-button type="success" size="small" @click="handleClaim(row)">
+                  認領
+                </el-button>
+                <el-button type="info" size="small" @click="showStatus(row)">
+                  查看狀態
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-if="!loading && groupData.length === 0" description="目前沒有可認領的群組任務" />
+      </el-tab-pane>
+
       <el-tab-pane label="待辦任務" name="pending">
         <el-table 
           :data="pendingData" 
@@ -22,14 +53,17 @@
             </template>
           </el-table-column>
           <el-table-column prop="createTime" label="收到時間" min-width="180" />
-          <el-table-column label="操作" width="180" fixed="right" align="center">
+          <el-table-column label="操作" width="220" fixed="right" align="center">
             <template #default="{ row }">
               <div class="action-buttons">
                 <el-button type="primary" size="small" @click="handleProcess(row)">
                   處理
                 </el-button>
+                <el-button type="warning" size="small" @click="handleUnclaim(row)" plain>
+                  取消認領
+                </el-button>
                 <el-button type="info" size="small" @click="showStatus(row)">
-                  查看狀態
+                  狀態
                 </el-button>
               </div>
             </template>
@@ -119,7 +153,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../../stores/userStore'
 import { taskApi, processApi } from '../../api/client'
 import DynamicForm from '../../components/DynamicForm.vue'
@@ -137,6 +171,7 @@ interface TaskViewModel {
 
 const activeTab = ref('pending')
 const pendingData = ref<TaskViewModel[]>([])
+const groupData = ref<TaskViewModel[]>([]) // ★★★ 新增：群組任務資料 ★★★
 const historyData = ref<TaskViewModel[]>([])
 const loading = ref(false)
 const userStore = useUserStore()
@@ -154,6 +189,8 @@ const handleTabChange = (tabName: string | number) => {
     loadPendingTasks()
   } else if (tabName === 'history') {
     loadHistoryTasks()
+  } else if (tabName === 'group') {
+    loadGroupTasks() // ★★★ 新增：載入群組任務 ★★★
   }
 }
 
@@ -167,6 +204,50 @@ const loadPendingTasks = async () => {
     ElMessage.error('無法載入待辦任務')
   } finally {
     loading.value = false
+  }
+}
+
+// ★★★ 新增：載入群組任務 ★★★
+const loadGroupTasks = async () => {
+  loading.value = true
+  try {
+    const response = await taskApi.getGroupTasks()
+    groupData.value = response.data as unknown as TaskViewModel[]
+  } catch (error: any) {
+    console.error(error)
+    ElMessage.error('無法載入可認領任務')
+  } finally {
+    loading.value = false
+  }
+}
+
+// ★★★ 新增：認領任務邏輯 ★★★
+const handleClaim = async (row: TaskViewModel) => {
+  try {
+    await taskApi.claimTask(row.id)
+    ElMessage.success('認領成功，任務已移至待辦列表')
+    // 重新載入目前分頁 (group)
+    loadGroupTasks()
+  } catch (error: any) {
+    ElMessage.error('認領失敗，可能已被他人認領')
+    loadGroupTasks()
+  }
+}
+
+// ★★★ 新增：取消認領邏輯 ★★★
+const handleUnclaim = async (row: TaskViewModel) => {
+  try {
+    await ElMessageBox.confirm('確定要取消認領此任務到群組池嗎？', '取消認領確認', {
+      type: 'warning',
+      confirmButtonText: '確定取消認領',
+      cancelButtonText: '取消'
+    })
+    
+    await taskApi.unclaimTask(row.id)
+    ElMessage.success('任務已取消認領')
+    loadPendingTasks()
+  } catch (e) {
+    // Cancelled or error
   }
 }
 

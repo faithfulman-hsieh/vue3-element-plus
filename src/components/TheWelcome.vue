@@ -1,4 +1,3 @@
-<!-- src/components/TheWelcome.vue -->
 <script setup lang="ts">
 import WelcomeItem from './WelcomeItem.vue';
 import InitIcon from './icons/IconInit.vue';
@@ -67,7 +66,13 @@ import DoingIcon from './icons/IconDoing.vue';
         <DoingIcon />
       </template>
       <template #heading>現正進行中</template>
-      提供 角色與權限管理，確保不同用戶在適當的階段執行對應任務，即支援流程「任務簽收與候選群組 (Task Claiming & Candidate Groups)」的功能
+      正在實作 Activiti <strong>進階任務分配</strong>，重點在於 <strong>候選人/候選群組 (Candidate Users/Groups)</strong>，
+      建立「任務池」概念，支援成員進行 <strong>簽收 (Claim)</strong> 與 <strong>反簽收 (Unclaim)</strong>，適用於公用信箱或客服派單場景。
+      <br /><br />
+      後續將持續完善 Activiti 引擎特色：
+      <br />🔹 <strong>自動化與服務整合</strong>：Service Task (自動執行 Java Code)、Mail Task (郵件通知)、Script Task (腳本邏輯)。
+      <br />🔹 <strong>事件驅動</strong>：Timer Event (超時/延遲)、Signal Event (跨流程溝通)。
+      <br />🔹 <strong>複雜流轉邏輯</strong>：Inclusive Gateway (多選多分支)、Call Activity (子流程重用)。
     </WelcomeItem>
   </div>
 </template>
