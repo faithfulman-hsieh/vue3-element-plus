@@ -72,10 +72,22 @@ import { Search } from '@element-plus/icons-vue';
 import BpmnViewer from '../../components/BpmnViewer.vue';
 import ProcessTimeline from '../../components/ProcessTimeline.vue';
 import { processApi } from '../../api/client';
-import type { ProcessInstance } from '../../api/models';
+
+// ★★★ 1. 手動定義介面 (補足生成的 models 缺失) ★★★
+interface ProcessIns {
+    id: string;
+    name: string;
+    processDefinitionId: string;
+    status: string;
+    startTime: string;
+    endTime?: string;     // 可能為空
+    currentTask?: string; // 可能為空
+    assignee?: string;    // 可能為空
+}
 
 const searchName = ref('');
-const processInstances = ref<ProcessInstance[]>([]);
+// ★★★ 2. 使用手動定義的介面 ★★★
+const processInstances = ref<ProcessIns[]>([]);
 const dialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | string[] | null } | null>(null);
 const currentInstanceId = ref('');
@@ -84,6 +96,7 @@ const loading = ref(false);
 // 前端過濾邏輯
 const filteredList = computed(() => {
     if (!searchName.value.trim()) return processInstances.value;
+    // 因為 processInstances 現在有明確型別，這裡的 item 會被自動推斷為 ProcessIns，不會報 any 錯
     return processInstances.value.filter(item => 
         item.name.toLowerCase().includes(searchName.value.toLowerCase())
     );
@@ -93,7 +106,8 @@ const fetchProcesses = async () => {
   try {
     loading.value = true;
     const response = await processApi.getMyProcessInstances();
-    processInstances.value = response.data || [];
+    // 這裡我們強制轉型一下，確保型別匹配 (因為生成的 API 可能回傳 any 或其他型別)
+    processInstances.value = (response.data as unknown as ProcessIns[]) || [];
   } catch (error: any) {
     ElMessage.error('無法載入申請紀錄');
   } finally {
