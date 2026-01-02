@@ -349,7 +349,8 @@ onMounted(() => {
   flex-wrap: nowrap;
 }
 .file-name {
-  color: #606266;
+  /* Dark Mode 修正 */
+  color: var(--el-text-color-regular);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

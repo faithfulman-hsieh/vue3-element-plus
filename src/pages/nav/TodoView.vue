@@ -50,13 +50,21 @@
 
     <el-row :gutter="20">
       <el-col :span="22" :offset="1">
-        <el-table :data="todos" class="table-card" border stripe>
-          <el-table-column prop="title" label="標題" min-width="90" />
-          <el-table-column prop="description" label="描述" min-width="100" />
-          <el-table-column prop="status" label="待辦狀態" min-width="60" />
-          <el-table-column prop="processInstanceId" label="流程ID" min-width="70" />
-          <el-table-column prop="assignee" label="指派人" min-width="60" />
-          <el-table-column label="操作" min-width="360">
+        <el-table :data="todos" class="table-card" border stripe v-loading="loading">
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column prop="title" label="標題" min-width="200">
+            <template #default="{ row }">
+              <span :class="{ completed: row.completed }">{{ row.title }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="completed" label="狀態" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.completed ? 'success' : 'warning'">
+                {{ row.completed ? '已完成' : '未完成' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" align="center">
             <template #default="{ row }">
               <div class="action-buttons">
                 <el-button @click="showProcessDiagram(row.id)" type="info" size="small">查看狀態</el-button>
@@ -101,13 +109,21 @@ const newTodo = ref<TodoRequest>({ title: '', description: '', assignee: '' });
 const priority = ref('high');
 const dialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string } | null>(null);
+const loading = ref(false);
 
 const fetchTodos = async () => {
-  const response = await todosApi.getAllTodos();
-  if (response.data) {
-    todos.value = Array.isArray(response.data) ? response.data : [response.data]; // 修正單個 Todo
-  } else {
-    ElMessage.error('取得待辦事項失敗');
+  loading.value = true;
+  try {
+    const response = await todosApi.getAllTodos();
+    if (response.data) {
+      todos.value = Array.isArray(response.data) ? response.data : [response.data];
+    } else {
+      ElMessage.error('取得待辦事項失敗');
+    }
+  } catch (error) {
+    ElMessage.error('載入失敗');
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -129,7 +145,6 @@ const addTodo = async () => {
 const showProcessDiagram = async (todoId: number) => {
   const response = await todosApi.getProcessDiagram({ id: todoId });
   if (response.data) {
-    // 假設後端返回 JSON 字串，需解析
     const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
     currentBpmnData.value = { bpmnXml: data.bpmnXml, currentTask: data.currentTask };
     dialogVisible.value = true;
@@ -221,10 +236,12 @@ onMounted(() => {
 .page-title {
   margin: 0;
   font-size: 24px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-primary);
 }
 .subtitle {
   font-size: 14px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-secondary);
   margin-top: 5px;
   display: block;
@@ -232,6 +249,8 @@ onMounted(() => {
 .label-wrapper {
   text-align: right;
   line-height: 40px;
+  /* Dark Mode 修正 */
+  color: var(--el-text-color-regular);
 }
 .action-buttons {
   display: flex;

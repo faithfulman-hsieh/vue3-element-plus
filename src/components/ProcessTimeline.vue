@@ -19,7 +19,7 @@
               :type="getStatusType(activity.status)" 
               effect="light"
             >
-              {{ getStatusText(activity.status) }}
+              {{ activity.status === 'Running' ? '進行中' : '已完成' }}
             </el-tag>
           </div>
           
@@ -28,7 +28,7 @@
               <span class="label">處理人：</span>
               <span class="value">{{ activity.assignee }}</span>
             </div>
-            <div class="info-row" v-if="activity.activityType === 'userTask' && activity.status !== 'Skipped' && activity.duration && activity.duration !== '-'">
+            <div class="info-row" v-if="activity.activityType === 'userTask' && activity.duration && activity.duration !== '-'">
               <span class="label">耗時：</span>
               <span class="value">{{ activity.duration }}</span>
             </div>
@@ -78,29 +78,15 @@ const fetchHistory = async () => {
   }
 }
 
-// ★★★ 修改：增加 Skipped 的顏色判斷 ★★★
 const getActivityTypeColor = (activity: any) => {
   if (activity.status === 'Running') return 'primary'
-  if (activity.status === 'Skipped') return 'warning' // 跳過的顯示黃色
   if (activity.activityType === 'startEvent') return 'info'
   if (activity.activityType === 'endEvent') return 'success'
-  return 'primary' // 完成的預設藍色，或可改 'success'
+  return 'primary'
 }
 
-// ★★★ 修改：增加 Skipped 的 Tag 樣式 ★★★
 const getStatusType = (status: string) => {
-  if (status === 'Running') return 'primary'
-  if (status === 'Skipped') return 'warning'
-  return 'success'
-}
-
-// ★★★ 新增：狀態文字轉換 ★★★
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'Running': return '進行中'
-    case 'Skipped': return '已跳過'
-    default: return '已完成'
-  }
+  return status === 'Running' ? 'primary' : 'success'
 }
 
 watch(() => props.instanceId, () => {
@@ -115,7 +101,8 @@ onMounted(() => {
 <style scoped>
 .timeline-container {
   padding: 10px;
-  background-color: #fff;
+  /* Dark Mode 修正 */
+  background-color: var(--el-bg-color);
   border-radius: 8px;
 }
 .timeline-title {
@@ -141,6 +128,7 @@ onMounted(() => {
 .activity-name {
   font-weight: bold;
   font-size: 15px;
+  color: var(--el-text-color-primary);
 }
 .info-row {
   margin-bottom: 4px;
@@ -153,6 +141,7 @@ onMounted(() => {
 }
 .variables-display {
   margin-top: 10px;
+  /* Dark Mode 修正 */
   background-color: var(--el-fill-color-light);
   padding: 8px;
   border-radius: 4px;

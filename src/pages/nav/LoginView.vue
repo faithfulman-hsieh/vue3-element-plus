@@ -104,13 +104,15 @@ const handleSubmit = async () => {
   padding: 24px;
   max-width: 800px;
   margin: 0 auto;
+  /* 確保背景色適應 */
+  background-color: var(--el-bg-color);
 }
 
 .page-title {
   text-align: center;
   margin-bottom: 30px;
   font-size: 28px;
-  /* ★★★ 修正：使用變數取代 #303133，自動適應暗色模式 ★★★ */
+  /* Dark Mode 修正 */
   color: var(--el-text-color-primary);
 }
 
@@ -118,7 +120,7 @@ const handleSubmit = async () => {
   text-align: right;
   line-height: 32px;
   font-weight: 500;
-  /* ★★★ 修正：使用變數取代 #606266，自動適應暗色模式 ★★★ */
+  /* Dark Mode 修正 */
   color: var(--el-text-color-regular);
 }
 

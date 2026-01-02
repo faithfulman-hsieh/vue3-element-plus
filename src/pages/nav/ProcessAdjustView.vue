@@ -2,7 +2,6 @@
     <div class="page-container">
         <h1 class="page-title">流程動態調整</h1>
 
-        <!-- 篩選 -->
         <el-form class="form-card">
             <el-row :gutter="20">
                 <el-col :span="8">
@@ -24,7 +23,6 @@
             </el-row>
         </el-form>
 
-        <!-- 流程實例列表 -->
         <el-row :gutter="20">
             <el-col :span="22" :offset="1">
                 <el-table :data="processInstances" class="table-card" border stripe :loading="loading">
@@ -48,7 +46,6 @@
             </el-col>
         </el-row>
 
-        <!-- 重新分配對話框 -->
         <el-dialog title="重新分配任務" v-model="reassignVisible" width="50%">
             <el-form :model="reassignForm" class="form-card">
                 <el-row :gutter="20">
@@ -75,7 +72,6 @@
             </el-form>
         </el-dialog>
 
-        <!-- 跳轉節點對話框 -->
         <el-dialog title="跳轉節點" v-model="jumpVisible" width="80%">
             <bpmn-viewer :bpmnXml="currentBpmnData?.bpmnXml" :currentTask="currentBpmnData?.currentTask" />
             <el-form :model="jumpForm" class="form-card">
@@ -254,9 +250,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Dark Mode 修正 */
+.page-title {
+    color: var(--el-text-color-primary);
+}
 .label-wrapper {
     text-align: right;
     line-height: 40px;
+    /* Dark Mode 修正 */
+    color: var(--el-text-color-regular);
 }
 .action-buttons {
     display: flex;

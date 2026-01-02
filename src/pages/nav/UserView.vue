@@ -191,10 +191,12 @@ onMounted(fetchUsers);
 .page-title {
   margin: 0;
   font-size: 24px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-primary);
 }
 .subtitle {
   font-size: 14px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-secondary);
   margin-top: 5px;
   display: block;
@@ -202,6 +204,8 @@ onMounted(fetchUsers);
 .label-wrapper {
   text-align: right;
   line-height: 40px;
+  /* Dark Mode 修正 */
+  color: var(--el-text-color-regular);
 }
 .table-card {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);

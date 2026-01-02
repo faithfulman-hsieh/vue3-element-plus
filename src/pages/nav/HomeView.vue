@@ -25,15 +25,16 @@ import TheWelcome from '../../components/TheWelcome.vue';
 .page-title {
   margin: 0;
   font-size: 24px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-primary);
 }
 .subtitle {
   font-size: 14px;
+  /* Dark Mode 修正 */
   color: var(--el-text-color-secondary);
   margin-top: 5px;
   display: block;
 }
-/* content-box 可視需求保留或調整 */
 .content-box {
   background-color: var(--el-bg-color);
 }

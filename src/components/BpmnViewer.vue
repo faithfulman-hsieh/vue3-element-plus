@@ -44,10 +44,7 @@ const renderDiagram = async () => {
     const canvas = bpmnViewer.get('canvas');
     const elementRegistry = bpmnViewer.get('elementRegistry');
 
-    // 1. 先讓圖表適應視窗大小 (此時可能會貼邊)
     canvas.zoom('fit-viewport', 'auto');
-
-    // ★★★ 2. 修改：稍微縮小一點 (例如縮小到 90%)，製造四週留白 ★★★
     const currentZoom = canvas.zoom();
     canvas.zoom(currentZoom * 0.9);
 
@@ -95,17 +92,18 @@ onUnmounted(() => {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
+  transition: border-color 0.3s;
 }
 
 .bpmn-container {
   width: 100%;
   height: 100%;
+  /* Light Mode 預設背景 */
   background-color: #ffffff;
   background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-/* 提示標籤樣式 */
 .viewer-hint {
   position: absolute;
   bottom: 20px;
@@ -131,40 +129,99 @@ onUnmounted(() => {
   margin-right: 8px;
   display: inline-block;
 }
+</style>
 
-/* 未執行的任務 (預設樣式)：米黃色底 */
-:deep(.djs-visual > rect),
-:deep(.djs-visual > polygon) {
+<style>
+/* =================================================================
+   Light Mode 預設覆蓋 (保持原樣)
+   ================================================================= */
+.bpmn-container .djs-visual > rect,
+.bpmn-container .djs-visual > polygon {
   fill: #FDF6EC !important; 
 }
-
-/* 圓形保持白色 */
-:deep(.djs-visual > circle) {
+.bpmn-container .djs-visual > circle {
   fill: #ffffff !important; 
 }
 
-/* 執行中的任務 (Highlight)：綠色底 + 綠色框 */
-:deep(.highlight .djs-visual > rect),
-:deep(.highlight .djs-visual > polygon) {
+/* Highlight */
+.bpmn-container .highlight .djs-visual > rect,
+.bpmn-container .highlight .djs-visual > polygon {
   fill: rgba(103, 194, 58, 0.2) !important; 
-  stroke: #67c23a !important;               
+  stroke: #67c23a !important;                
   stroke-width: 3px !important;            
 }
-
-/* 執行中的圓形 */
-:deep(.highlight .djs-visual > circle) {
+.bpmn-container .highlight .djs-visual > circle {
   fill: rgba(103, 194, 58, 0.2) !important;
   stroke: #67c23a !important;
   stroke-width: 3px !important;
 }
-
-/* 執行中的任務文字：黑色 */
-:deep(.highlight .djs-label text) {
+.bpmn-container .highlight .djs-label text {
   fill: #000000 !important; 
   font-weight: bold !important;
 }
-
-:deep(.highlight .djs-label) {
+.bpmn-container .highlight .djs-label {
   z-index: 10 !important;
+}
+
+/* =================================================================
+   Dark Mode 覆蓋 (核彈級)
+   ================================================================= */
+
+/* 1. 容器背景 */
+html.dark .viewer-wrapper {
+  border-color: #4C4D4F !important;
+}
+html.dark .bpmn-container {
+  background-color: #141414 !important;
+  background-image: radial-gradient(#333333 1px, transparent 1px) !important;
+}
+
+/* 2. 提示框 */
+html.dark .viewer-hint {
+  background: #1D1E1F !important;
+  border-color: #4C4D4F !important;
+  color: #CFD3DC !important;
+}
+
+/* 3. SVG 元素反色 */
+
+/* 所有形狀 (Task, Gateway) -> 深灰底 */
+html.dark .bpmn-container .djs-visual > rect,
+html.dark .bpmn-container .djs-visual > polygon {
+  fill: #1D1E1F !important;
+  stroke: #A3A6AD !important;
+  fill-opacity: 1 !important;
+}
+
+/* 圓形 (Start/End) -> 深灰底 */
+html.dark .bpmn-container .djs-visual > circle {
+  fill: #1D1E1F !important;
+  stroke: #A3A6AD !important;
+  fill-opacity: 1 !important;
+}
+
+/* 線條 -> 淺灰 */
+html.dark .bpmn-container .djs-visual > path {
+  stroke: #A3A6AD !important;
+}
+
+/* 文字 -> 淺灰 */
+html.dark .bpmn-container .djs-label text,
+html.dark .bpmn-container .djs-label tspan {
+  fill: #E5EAF3 !important;
+}
+
+/* 4. Highlight (進行中) 微調 */
+html.dark .bpmn-container .highlight .djs-visual > rect,
+html.dark .bpmn-container .highlight .djs-visual > polygon,
+html.dark .bpmn-container .highlight .djs-visual > circle {
+  fill: rgba(103, 194, 58, 0.15) !important;
+  stroke: #67c23a !important;
+}
+
+/* 進行中文字 -> 白色 */
+html.dark .bpmn-container .highlight .djs-label text,
+html.dark .bpmn-container .highlight .djs-label tspan {
+  fill: #FFFFFF !important;
 }
 </style>

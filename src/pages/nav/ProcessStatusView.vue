@@ -5,15 +5,21 @@
             <span class="subtitle">監控全系統流程執行狀況，進行異常處理與介入</span>
         </div>
 
-        <div class="search-bar">
-            <el-input 
-                v-model="searchName" 
-                placeholder="輸入流程名稱進行篩選..." 
-                :prefix-icon="Search"
-                clearable
-                class="search-input"
-            />
-        </div>
+        <el-form class="filter-form" :inline="true">
+            <el-row :gutter="20" style="width: 100%">
+                <el-col :span="16"></el-col>
+                <el-col :span="8">
+                    <el-form-item label-width="0" style="width: 100%; display: flex; justify-content: flex-end;">
+                        <el-input 
+                            v-model="searchName" 
+                            placeholder="輸入流程名稱" 
+                            :prefix-icon="Search" 
+                            clearable
+                        />
+                    </el-form-item>
+                </el-col>
+            </el-row>
+        </el-form>
 
         <el-row :gutter="20">
             <el-col :span="24">
@@ -22,7 +28,7 @@
                     <el-table-column prop="currentTask" label="當前階段" min-width="100" />
                     <el-table-column prop="assignee" label="執行者" min-width="60" />
                     <el-table-column prop="startTime" label="開始時間" min-width="100" />
-                    <el-table-column label="操作" min-width="180" align="center">
+                    <el-table-column label="操作" min-width="100">
                         <template #default="{ row }">
                             <div class="action-buttons">
                                 <el-button type="info" size="small" @click="showProcessDiagram(row.id)">
@@ -58,6 +64,7 @@
                         :currentTask="currentBpmnData.currentTask" 
                     />
                 </div>
+                
                 <div class="timeline-panel">
                     <process-timeline 
                         v-if="currentInstanceId"
@@ -124,7 +131,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Search } from '@element-plus/icons-vue'; // 引入放大鏡
+import { Search } from '@element-plus/icons-vue'; // 引入放大鏡圖示
 import BpmnViewer from '../../components/BpmnViewer.vue';
 import ProcessTimeline from '../../components/ProcessTimeline.vue';
 import DynamicForm from '../../components/DynamicForm.vue';
@@ -132,13 +139,12 @@ import { processApi } from '../../api/client';
 import type { ProcessInstance, FormField } from '../../api/models';
 
 const searchName = ref('');
-const processInstances = ref<ProcessInstance[]>([]); // 存放所有原始資料
+const processInstances = ref<ProcessInstance[]>([]);
 const dialogVisible = ref(false);
 const currentBpmnData = ref<{ bpmnXml: string; currentTask: string | string[] | null } | null>(null);
 const currentInstanceId = ref('');
 const loading = ref(false);
 
-// 跳關相關狀態
 const jumpDialogVisible = ref(false);
 const formLoading = ref(false);
 const selectedTargetNode = ref('');
@@ -147,14 +153,11 @@ const currentJumpInstanceId = ref('');
 const jumpFormFields = ref<FormField[]>([]); 
 const jumpVariablesJson = ref('{}');   
 
-// ★★★ Computed: 前端即時過濾 ★★★
+// 前端過濾邏輯
 const filteredInstances = computed(() => {
-    if (!searchName.value.trim()) {
-        return processInstances.value;
-    }
-    const keyword = searchName.value.trim().toLowerCase();
+    if (!searchName.value.trim()) return processInstances.value;
     return processInstances.value.filter(instance => 
-        instance.name.toLowerCase().includes(keyword)
+        instance.name.toLowerCase().includes(searchName.value.toLowerCase())
     );
 });
 
@@ -162,10 +165,10 @@ const fetchProcesses = async () => {
   try {
     loading.value = true;
     const response = await processApi.getAllInstances();
-    // 儲存完整資料，不在此處過濾
     processInstances.value = response.data || [];
   } catch (error: any) {
-    ElMessage.error('獲取流程實例失敗');
+    console.error('Failed to fetch process instances:', error);
+    ElMessage.error(error.response?.data?.message || '獲取流程實例失敗');
   } finally {
     loading.value = false;
   }
@@ -186,7 +189,8 @@ const showProcessDiagram = async (id: string) => {
     };
     dialogVisible.value = true;
   } catch (error: any) {
-    ElMessage.error('獲取流程圖失敗');
+    console.error('Failed to fetch process diagram:', error);
+    ElMessage.error(error.response?.data?.message || '獲取流程圖失敗');
   } finally {
     loading.value = false;
   }
@@ -280,14 +284,13 @@ onMounted(() => {
   margin-top: 5px;
   display: block;
 }
-.search-bar {
-    margin-bottom: 20px;
-    width: 300px; /* 限制寬度，保持簡潔 */
+.label-wrapper {
+  text-align: right;
+  line-height: 40px;
 }
 .action-buttons {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
   flex-wrap: nowrap;
 }
@@ -301,7 +304,7 @@ onMounted(() => {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 .timeline-panel {
   flex: 1;
@@ -309,14 +312,14 @@ onMounted(() => {
   border-radius: 4px;
   padding: 10px;
   overflow-y: auto;
-  background-color: #fff;
+  background-color: var(--el-bg-color);
 }
 .mb-2 {
     margin-bottom: 10px;
 }
 .tip-text {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
     line-height: 1.5;
     margin-top: 5px;
 }
