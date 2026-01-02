@@ -67,7 +67,7 @@ import DoingIcon from './icons/IconDoing.vue';
         <DoingIcon />
       </template>
       <template #heading>現正進行中</template>
-      提供 角色與權限管理，確保不同用戶在適當的階段執行對應任務；
+      提供 角色與權限管理，確保不同用戶在適當的階段執行對應任務，即支援流程「任務簽收與候選群組 (Task Claiming & Candidate Groups)」的功能
     </WelcomeItem>
   </div>
 </template>
