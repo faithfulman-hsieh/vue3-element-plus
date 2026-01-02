@@ -60,28 +60,16 @@
                 <div v-else class="no-form-state">
                     <el-alert 
                         title="此流程未定義啟動表單" 
-                        type="info" 
+                        type="error" 
                         show-icon 
                         :closable="false"
                         class="mb-4"
                     >
-                        您可以直接啟動，或輸入自訂參數。
+                        無法啟動此流程，因為後端未定義對應的表單欄位。
                     </el-alert>
                     
-                    <el-form label-width="100px">
-                        <el-form-item label="啟動參數">
-                            <el-input 
-                                v-model="fallbackJson" 
-                                type="textarea" 
-                                :rows="4" 
-                                placeholder='{"key": "value"}' 
-                            />
-                        </el-form-item>
-                    </el-form>
-                    
                     <div class="dialog-footer">
-                        <el-button @click="startDialogVisible = false">取消</el-button>
-                        <el-button type="primary" @click="handleFallbackStart">強制啟動</el-button>
+                        <el-button @click="startDialogVisible = false">關閉</el-button>
                     </div>
                 </div>
             </div>
@@ -103,7 +91,6 @@ const startDialogVisible = ref(false);
 const currentProcessId = ref('');
 const formFields = ref<any[]>([]);
 const dynamicFormRef = ref();
-const fallbackJson = ref('{}');
 
 const loadProcesses = async () => {
     loading.value = true;
@@ -122,27 +109,19 @@ const openStartDialog = async (row: any) => {
     startDialogVisible.value = true;
     formLoading.value = true;
     formFields.value = [];
-    fallbackJson.value = '{}';
 
     try {
+        // 1. 嘗試從後端讀取表單 (如果有 BPMN 表單定義)
         const res = await processApi.getProcessFormFields({ id: row.id });
         if (res.data && res.data.length > 0) {
             formFields.value = res.data;
         } else {
-            if (row.key === 'purchaseProcess') {
-                formFields.value = [
-                    { key: 'itemName', label: '採購項目', type: 'text', required: true },
-                    { key: 'amount', label: '金額', type: 'number', required: true }
-                ];
-            } else if (row.key === 'leaveProcess') {
-                formFields.value = [
-                    { key: 'day', label: '請假天數', type: 'number', required: true },
-                    { key: 'reason', label: '請假事由', type: 'text', required: true }
-                ];
-            }
+            // 2. 如果後端沒定義表單，則不再使用前端預設表單
+            // 讓 formFields 維持空陣列，這會觸發 v-else 區塊顯示錯誤訊息
+            console.warn('後端未定義表單，無法啟動流程');
         }
     } catch (err) {
-        ElMessage.warning('無法讀取表單定義，使用預設模式');
+        ElMessage.warning('無法讀取表單定義');
     } finally {
         formLoading.value = false;
     }
@@ -159,16 +138,7 @@ const handleStartProcess = async (formData: any) => {
         ElMessage.success('申請已送出');
         startDialogVisible.value = false;
     } catch (err: any) {
-        ElMessage.error('啟動失敗');
-    }
-};
-
-const handleFallbackStart = async () => {
-    try {
-        const variables = JSON.parse(fallbackJson.value);
-        await handleStartProcess(variables);
-    } catch (e) {
-        ElMessage.error('JSON 格式錯誤');
+        ElMessage.error(err.response?.data?.message || '啟動失敗');
     }
 };
 
@@ -217,6 +187,7 @@ onMounted(() => {
 .process-name {
     font-weight: bold;
     font-size: 16px;
+    color: var(--el-text-color-primary);
 }
 .card-content {
     padding-top: 10px;

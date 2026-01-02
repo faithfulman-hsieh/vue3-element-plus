@@ -1,177 +1,158 @@
 <template>
-  <el-form 
-    ref="formRef" 
-    :model="formData" 
-    label-width="120px" 
-    class="dynamic-form"
-  >
-    <el-form-item
-      v-for="field in regularFields"
-      :key="field.key"
-      :label="field.label"
-      :prop="field.key"
-      :rules="field.required ? [{ required: true, message: '此欄位為必填', trigger: 'change' }] : []"
-    >
-      <el-input
-        v-if="field.type === 'text'"
-        v-model="formData[field.key]"
-        :disabled="field.disabled"
-        :placeholder="field.disabled ? '' : '請輸入'"
-      />
-      
-      <el-input
-        v-if="field.type === 'textarea'"
-        v-model="formData[field.key]"
-        type="textarea"
-        :rows="3"
-        :disabled="field.disabled"
-        :placeholder="field.disabled ? '' : '請輸入'"
-      />
-
-      <el-select
-        v-if="field.type === 'select'"
-        v-model="formData[field.key]"
-        :disabled="field.disabled"
-        placeholder="請選擇"
-        style="width: 100%"
-      >
-        <el-option
-          v-for="opt in field.options"
-          :key="opt.value"
-          :label="opt.label"
-          :value="opt.value"
+  <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px" class="dynamic-form">
+    <template v-for="field in fields" :key="field.key">
+      <el-form-item :label="field.label" :prop="field.key">
+        
+        <el-input 
+          v-if="field.type === 'text' || field.type === 'string'" 
+          v-model="formData[field.key]" 
+          :placeholder="`請輸入${field.label}`"
         />
-      </el-select>
 
-      <el-date-picker
-        v-if="field.type === 'date'"
-        v-model="formData[field.key]"
-        type="date"
-        :disabled="field.disabled"
-        style="width: 100%"
-        value-format="YYYY-MM-DD"
-        placeholder="請選擇日期"
-      />
+        <el-input-number 
+          v-else-if="field.type === 'number' || field.type === 'long'" 
+          v-model="formData[field.key]" 
+          :min="0"
+          style="width: 100%"
+        />
 
-      <el-input-number
-        v-if="field.type === 'number'"
-        v-model="formData[field.key]"
-        :disabled="field.disabled"
-      />
-      
-      <el-switch
-        v-if="field.type === 'switch'"
-        v-model="formData[field.key]"
-        :disabled="field.disabled"
-      />
-    </el-form-item>
+        <el-date-picker
+          v-else-if="field.type === 'date'"
+          v-model="formData[field.key]"
+          type="date"
+          placeholder="選擇日期"
+          style="width: 100%"
+          value-format="YYYY-MM-DD"
+        />
 
-    <div class="form-footer">
-      <el-button @click="$emit('cancel')">取消</el-button>
-
-      <template v-if="actionField">
-        <el-button
-          v-for="opt in actionField.options"
-          :key="opt.value"
-          :type="getButtonType(opt.value)"
-          @click="handleActionSubmit(actionField.key, opt.value)"
+        <el-select 
+          v-else-if="field.type === 'enum' || field.type === 'select'" 
+          v-model="formData[field.key]" 
+          placeholder="請選擇"
+          style="width: 100%"
         >
-          {{ opt.label }}
-        </el-button>
-      </template>
+          <el-option
+            v-for="opt in field.options"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
 
-      <template v-else>
-        <el-button type="primary" @click="handleSubmit">送出</el-button>
-      </template>
+        <el-checkbox-group 
+          v-else-if="field.type === 'checkbox-group'" 
+          v-model="formData[field.key]"
+        >
+          <el-checkbox 
+            v-for="opt in field.options" 
+            :key="opt.value" 
+            :label="opt.value"
+          >
+            {{ opt.label }}
+          </el-checkbox>
+        </el-checkbox-group>
+
+        <el-input 
+          v-else 
+          v-model="formData[field.key]" 
+          :placeholder="`請輸入${field.label}`"
+        />
+      </el-form-item>
+    </template>
+
+    <div class="form-actions">
+      <el-button @click="$emit('cancel')">取消</el-button>
+      <el-button type="primary" @click="handleSubmit">{{ submitText }}</el-button>
     </div>
-
   </el-form>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, defineProps, defineEmits } from 'vue'
-import type { FormInstance } from 'element-plus'
+import { ref, reactive, watch, onMounted } from 'vue';
+import type { FormInstance } from 'element-plus';
+
+interface Option {
+  label: string;
+  value: string | number;
+}
+
+interface FormField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  options?: Option[]; // 支援選項
+}
 
 const props = defineProps({
   fields: {
-    type: Array as () => any[],
-    required: true,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['submit', 'cancel'])
-const formRef = ref<FormInstance>()
-const formData = ref<any>({})
-
-const actionField = computed(() => {
-  return props.fields.find(f => f.uiComponent === 'buttons' && f.type === 'select')
-})
-
-const regularFields = computed(() => {
-  return props.fields.filter(f => !(f.uiComponent === 'buttons' && f.type === 'select'))
-})
-
-watch(
-  () => props.fields,
-  (newFields) => {
-    const data: any = {}
-    if (newFields && newFields.length > 0) {
-      newFields.forEach((field) => {
-        if (field.value !== undefined && field.value !== null) {
-          data[field.key] = field.value
-        } else {
-          if (field.type === 'switch') data[field.key] = false
-          else data[field.key] = ''
-        }
-      })
-    }
-    formData.value = data
+    type: Array as () => FormField[],
+    required: true
   },
-  { immediate: true, deep: true }
-)
+  submitText: {
+    type: String,
+    default: '提交'
+  }
+});
 
-const handleActionSubmit = async (key: string, value: string) => {
-  formData.value[key] = value
-  handleSubmit()
-}
+const emit = defineEmits(['submit', 'cancel']);
+const formRef = ref<FormInstance>();
+const formData = reactive<Record<string, any>>({});
+const rules = reactive<Record<string, any>>({});
+
+// 初始化表單數據與驗證規則
+const initForm = () => {
+  // 清空舊數據
+  Object.keys(formData).forEach(key => delete formData[key]);
+  Object.keys(rules).forEach(key => delete rules[key]);
+
+  props.fields.forEach(field => {
+    // 預設值初始化
+    if (field.type === 'checkbox-group') {
+      formData[field.key] = []; // 陣列類型
+    } else {
+      formData[field.key] = '';
+    }
+
+    // 建立驗證規則
+    if (field.required) {
+      rules[field.key] = [
+        { 
+          required: true, 
+          message: `${field.label}是必填項`, 
+          trigger: field.type === 'select' || field.type === 'checkbox-group' ? 'change' : 'blur' 
+        }
+      ];
+    }
+  });
+};
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
+  if (!formRef.value) return;
   await formRef.value.validate((valid) => {
     if (valid) {
-      emit('submit', formData.value)
+      emit('submit', { ...formData });
     }
-  })
-}
+  });
+};
 
-const getButtonType = (value: string) => {
-  const lowerVal = value.toLowerCase()
-  if (['reject', 'cancel', 'delete'].some(k => lowerVal.includes(k))) {
-    return 'danger'
-  }
-  if (['approve', 'confirm', 'complete', 'pass'].some(k => lowerVal.includes(k))) {
-    return 'primary'
-  }
-  if (['reassign'].some(k => lowerVal.includes(k))) {
-    return 'warning'
-  }
-  return 'default'
-}
+// 監聽 fields 變化重新初始化
+watch(() => props.fields, () => {
+  initForm();
+}, { deep: true });
+
+onMounted(() => {
+  initForm();
+});
 </script>
 
 <style scoped>
 .dynamic-form {
-  /* ★★★ 修改：上下 10px，左右 10% ★★★ */
-  padding: 10px 10%; 
+  padding: 10px 0;
 }
-
-.form-footer {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--el-border-color-lighter);
+.form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  margin-top: 20px;
 }
 </style>
