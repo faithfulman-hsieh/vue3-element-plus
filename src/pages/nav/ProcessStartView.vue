@@ -111,13 +111,11 @@ const openStartDialog = async (row: any) => {
     formFields.value = [];
 
     try {
-        // 1. 嘗試從後端讀取表單 (如果有 BPMN 表單定義)
+        // 直接從後端讀取表單定義，後端會自動判斷是否需要 checkbox-group
         const res = await processApi.getProcessFormFields({ id: row.id });
         if (res.data && res.data.length > 0) {
             formFields.value = res.data;
         } else {
-            // 2. 如果後端沒定義表單，則不再使用前端預設表單
-            // 讓 formFields 維持空陣列，這會觸發 v-else 區塊顯示錯誤訊息
             console.warn('後端未定義表單，無法啟動流程');
         }
     } catch (err) {
