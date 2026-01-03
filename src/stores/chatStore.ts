@@ -4,7 +4,7 @@ import { Client, type Message } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useUserStore } from './userStore'
 import { ElNotification } from 'element-plus'
-import { chatApi } from '../api/client' // ★★★ 1. 引入 chatApi
+import { chatApi } from '../api/client'
 
 interface ChatMessage {
   sender: string
@@ -23,54 +23,93 @@ export const useChatStore = defineStore('chat', () => {
   
   const userStore = useUserStore()
 
-  // ★★★ 2. 實作獲取歷史訊息 ★★★
+  // 獲取歷史訊息
   const fetchHistory = async () => {
+    console.log('[ChatStore] 準備呼叫後端 API 獲取歷史訊息...')
     try {
+      // 這裡呼叫後端 REST API
       const response = await chatApi.getPublicHistory()
+      console.log('[ChatStore] 歷史訊息獲取成功，筆數:', response.data?.length || 0)
+      
       if (response.data) {
         messages.value = response.data as unknown as ChatMessage[]
       }
     } catch (error) {
-      console.error('無法載入聊天紀錄', error)
+      console.error('[ChatStore] ❌ 無法載入聊天紀錄 (API 呼叫失敗):', error)
     }
   }
 
+  // 連線到後端 WebSocket
   const connect = () => {
-    if (isConnected.value || !userStore.token) return
+    console.log('[ChatStore] connect() 被觸發')
 
+    // 1. 檢查連線狀態
+    if (isConnected.value) {
+        console.warn('[ChatStore] 狀態顯示已連線，跳過本次連線請求')
+        return
+    }
+
+    // 2. 檢查 Token
+    const token = userStore.token
+    if (!token) {
+        console.error('[ChatStore] ❌ 找不到 Token！請確認使用者是否已登入')
+        return
+    }
+    console.log('[ChatStore] Token 檢查通過:', token.substring(0, 10) + '...')
+
+    // 3. 設定網址 (變數宣告要在物件外面!)
+    const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+    const BASE_URL = envUrl.replace(/\/+$/, '')
+    const wsUrl = `${BASE_URL}/ws`
+    console.log('[ChatStore] 目標 WebSocket 網址:', wsUrl)
+
+    // 建立 STOMP 客戶端
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
-      connectHeaders: {
-        Authorization: `Bearer ${userStore.token}`
+      // 指向後端的 /ws 端點
+      webSocketFactory: () => {
+          console.log('[ChatStore] 正在建立 SockJS 物件...')
+          return new SockJS(wsUrl)
       },
       
-      onConnect: () => {
-        isConnected.value = true
-        console.log('✅ WebSocket 連線成功')
+      connectHeaders: {
+        Authorization: `Bearer ${token}`
+      },
+      
+      // ★★★ 開啟 STOMP 除錯模式，這會印出所有底層傳輸細節 ★★★
+      debug: (str) => {
+        console.log('[STOMP Debug]:', str)
+      },
 
-        // ★★★ 3. 連線成功後，立刻呼叫 API 載入歷史紀錄 ★★★
+      onConnect: () => {
+        console.log('[ChatStore] ✅ STOMP 連線成功 (onConnect)！')
+        isConnected.value = true
+
+        // 連線成功後，呼叫 API
         fetchHistory()
 
-        // 訂閱公共聊天室
+        // 訂閱頻道
+        console.log('[ChatStore] 開始訂閱頻道...')
+        
         client.subscribe('/topic/public-chat', (message: Message) => {
+          console.log('[ChatStore] 收到廣播訊息:', message.body)
           const body: ChatMessage = JSON.parse(message.body)
           if (['CHAT', 'JOIN', 'LEAVE'].includes(body.type)) {
             messages.value.push(body)
           }
         })
 
-        // 訂閱個人通知
         client.subscribe('/user/queue/notifications', (message: Message) => {
+          console.log('[ChatStore] 收到個人通知:', message.body)
           const body: ChatMessage = JSON.parse(message.body)
           handleNotification(body)
         })
 
-        // 訂閱語音信令
         client.subscribe('/user/queue/signal', (message: Message) => {
-          console.log('收到信令:', message.body)
+          console.log('[ChatStore] 收到語音信令:', message.body)
         })
 
         // 發送上線通知
+        console.log('[ChatStore] 發送上線封包 (JOIN)...')
         client.publish({
           destination: '/app/chat.addUser',
           body: JSON.stringify({
@@ -81,21 +120,24 @@ export const useChatStore = defineStore('chat', () => {
       },
 
       onStompError: (frame) => {
-        console.error('❌ STOMP 錯誤', frame.headers['message'])
+        console.error('[ChatStore] ❌ STOMP 協定錯誤:', frame.headers['message'])
+        console.error('[ChatStore] 錯誤詳情:', frame.body)
         isConnected.value = false
       },
 
-      onWebSocketClose: () => {
-        console.log('🔌 WebSocket 連線中斷')
+      onWebSocketClose: (evt) => {
+        console.warn('[ChatStore] 🔌 WebSocket 連線已斷開 (onWebSocketClose)', evt)
         isConnected.value = false
       }
     })
 
+    console.log('[ChatStore] 啟動 Client (activate)...')
     client.activate()
     stompClient.value = client
   }
 
   const disconnect = () => {
+    console.log('[ChatStore] 正在斷線...')
     if (stompClient.value) {
       stompClient.value.deactivate()
       stompClient.value = null
@@ -105,6 +147,7 @@ export const useChatStore = defineStore('chat', () => {
 
   const sendMessage = (content: string) => {
     if (stompClient.value && isConnected.value) {
+      console.log('[ChatStore] 發送訊息:', content)
       const chatMessage = {
         sender: userStore.userName,
         content: content,
@@ -114,6 +157,8 @@ export const useChatStore = defineStore('chat', () => {
         destination: '/app/chat.sendMessage',
         body: JSON.stringify(chatMessage)
       })
+    } else {
+        console.warn('[ChatStore] 發送失敗：未連線')
     }
   }
 
