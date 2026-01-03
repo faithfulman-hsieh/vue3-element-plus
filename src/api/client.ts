@@ -6,6 +6,7 @@ import { TodoAPI } from './api/todo-api';
 
 import { ProcessAPI } from './api/process-api';
 import { TaskAPI } from './api/task-api';
+import { ChatAPI } from './api/chat-api';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
@@ -29,3 +30,4 @@ export const todosApi = new TodoAPI(apiConfig);
 
 export const processApi = new ProcessAPI(apiConfig);
 export const taskApi = new TaskAPI(apiConfig);
+export const chatApi = new ChatAPI(apiConfig);

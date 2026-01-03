@@ -4,7 +4,10 @@ import { Client, type Message } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useUserStore } from './userStore'
 import { ElNotification } from 'element-plus'
+// ★★★ 1. 引入剛剛匯出的 chatApi ★★★
+import { chatApi } from '../api/client'
 
+// 這裡定義的介面要與後端 DTO 對應
 interface ChatMessage {
   sender: string
   content: string
@@ -22,20 +25,29 @@ export const useChatStore = defineStore('chat', () => {
   
   const userStore = useUserStore()
 
+  // ★★★ 2. 新增：從後端 API 獲取歷史訊息 ★★★
+  const fetchHistory = async () => {
+    try {
+      // 這裡呼叫剛剛實作的 getPublicHistory
+      const response = await chatApi.getPublicHistory()
+      if (response.data) {
+        // 將 API 回傳的資料填入 messages
+        messages.value = response.data as unknown as ChatMessage[]
+      }
+    } catch (error) {
+      console.error('無法載入聊天紀錄', error)
+    }
+  }
+
   // 連線到後端 WebSocket
   const connect = () => {
     if (isConnected.value || !userStore.token) return
 
-    // 建立 STOMP 客戶端
     const client = new Client({
-      // 指向後端的 /ws 端點
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
-      
-      // 將 Token 放入 Header (雖然目前後端 permitAll，但為了未來擴充先放著)
       connectHeaders: {
         Authorization: `Bearer ${userStore.token}`
       },
-      
       debug: (str) => {
         // 開發階段可以打開 Log
         // console.log('STOMP: ' + str)
@@ -45,10 +57,12 @@ export const useChatStore = defineStore('chat', () => {
         isConnected.value = true
         console.log('✅ WebSocket 連線成功')
 
+        // ★★★ 3. 連線成功後，立刻載入歷史訊息 ★★★
+        fetchHistory()
+
         // 1. 訂閱公共聊天室
         client.subscribe('/topic/public-chat', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
-          // 只接收聊天相關訊息，避免混入其他類型
           if (['CHAT', 'JOIN', 'LEAVE'].includes(body.type)) {
             messages.value.push(body)
           }
@@ -62,7 +76,6 @@ export const useChatStore = defineStore('chat', () => {
 
         // 3. 訂閱語音信令 (預留給 Phase 2)
         client.subscribe('/user/queue/signal', (message: Message) => {
-          // 暫時留空，之後實作語音時會用到
           console.log('收到信令:', message.body)
         })
 
@@ -114,20 +127,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 處理系統通知 (彈出視窗)
+  // 處理系統通知
   const handleNotification = (msg: ChatMessage) => {
     unreadNotificationCount.value++
     
-    // 使用 Element Plus 的通知元件彈出右下角提醒
     ElNotification({
       title: '系統通知',
       message: msg.content,
       type: 'info',
-      duration: 5000, // 5秒後自動消失
+      duration: 5000,
       position: 'bottom-right'
     })
 
-    // 如果瀏覽器支援且允許，也可以彈出原生系統通知 (即使瀏覽器縮小也能看到)
     if (Notification.permission === "granted") {
       new Notification("工作流通知", { body: msg.content })
     }
@@ -139,6 +150,7 @@ export const useChatStore = defineStore('chat', () => {
     unreadNotificationCount,
     connect,
     disconnect,
-    sendMessage
+    sendMessage,
+    fetchHistory // 也可以匯出給 UI 手動重新整理用
   }
 })
