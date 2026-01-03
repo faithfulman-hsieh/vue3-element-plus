@@ -1,6 +1,39 @@
 <script lang="ts" setup>
-import { repository } from '../../../package.json'; // 調整路徑
-import { toggleDark } from '../../composables'; // 調整路徑
+import { onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { repository } from '../../../package.json';
+import { toggleDark } from '../../composables';
+import { useUserStore } from '../../stores/userStore';
+import { useChatStore } from '../../stores/chatStore';
+import { Bell, ChatDotRound } from '@element-plus/icons-vue';
+
+const router = useRouter();
+const userStore = useUserStore();
+const chatStore = useChatStore();
+
+// 點擊鈴鐺：清除未讀並跳轉至任務頁
+const handleNotificationClick = () => {
+  chatStore.unreadNotificationCount = 0;
+  router.push('/tasks');
+};
+
+// 監聽登入狀態與初始化 WebSocket
+onMounted(() => {
+  if ("Notification" in window && Notification.permission !== "granted") {
+    Notification.requestPermission();
+  }
+  if (userStore.isLoggedIn && !chatStore.isConnected) {
+    chatStore.connect();
+  }
+});
+
+watch(() => userStore.isLoggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
+    chatStore.connect();
+  } else {
+    chatStore.disconnect();
+  }
+});
 </script>
 
 <template>
@@ -14,17 +47,26 @@ import { toggleDark } from '../../composables'; // 調整路徑
     <el-menu-item index="/about">
       <span>關於平台</span>
     </el-menu-item>
-<!--    <el-sub-menu index="2">-->
-<!--      <template #title>-->
-<!--        Workspace-->
-<!--      </template>-->
-<!--      <el-menu-item index="2-1">item one</el-menu-item>-->
-<!--      <el-menu-item index="2-2">item two</el-menu-item>-->
-<!--      <el-menu-item index="2-3">item three</el-menu-item>-->
-<!--    </el-sub-menu>-->
-<!--    <el-menu-item index="3" disabled>Info</el-menu-item>-->
+    
     <el-menu-item index="/user">使用者管理</el-menu-item>
     <el-menu-item index="/todo">待辦管理</el-menu-item>
+    
+    <el-menu-item index="/chatRoom">
+      <el-icon><ChatDotRound /></el-icon>
+      <span>聊天室</span>
+    </el-menu-item>
+
+    <el-menu-item h="full" @click="handleNotificationClick">
+       <el-badge 
+         :value="chatStore.unreadNotificationCount" 
+         :hidden="chatStore.unreadNotificationCount === 0" 
+         class="item"
+         style="display: flex; align-items: center;"
+       >
+         <el-icon><Bell /></el-icon>
+       </el-badge>
+    </el-menu-item>
+
     <el-menu-item h="full" @click="toggleDark()">
       <button
         class="w-full cursor-pointer border-none bg-transparent"

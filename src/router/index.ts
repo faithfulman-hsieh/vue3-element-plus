@@ -11,8 +11,10 @@ import TaskView from '../pages/nav/TaskView.vue';
 import ProcessStatusView from '../pages/nav/ProcessStatusView.vue';
 import ProcessAdjustView from '../pages/nav/ProcessAdjustView.vue';
 import RoleManageView from '../pages/nav/RoleManageView.vue';
-import ProcessStartView from '../pages/nav/ProcessStartView.vue' // ★ 新增 Import
-import MyRequestView from '../pages/nav/MyRequestView.vue' // ★ 新增 Import
+import ProcessStartView from '../pages/nav/ProcessStartView.vue';
+import MyRequestView from '../pages/nav/MyRequestView.vue';
+// ★★★ Import ChatRoom ★★★
+import ChatRoom from '../pages/nav/ChatRoom.vue';
 
 export const routes = [
   {
@@ -85,6 +87,14 @@ export const routes = [
     component: ProcessAdjustView,
     meta: { requiresAuth: true },
   },
+// ★★★ 新增 Chat Route ★★★
+  {
+    path: '/chatRoom',
+    name: 'chatRoom',
+    component: ChatRoom,
+    meta: { requiresAuth: true },
+  },
+
 ];
 
 const router = createRouter({
