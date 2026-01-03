@@ -6,7 +6,7 @@ import { TodoAPI } from './api/todo-api';
 
 import { ProcessAPI } from './api/process-api';
 import { TaskAPI } from './api/task-api';
-import { ChatAPI } from './api/chat-api';
+import { ChatAPI } from './api/chat-api'; // ★★★ 1. 新增 Import
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
@@ -30,4 +30,4 @@ export const todosApi = new TodoAPI(apiConfig);
 
 export const processApi = new ProcessAPI(apiConfig);
 export const taskApi = new TaskAPI(apiConfig);
-export const chatApi = new ChatAPI(apiConfig);
+export const chatApi = new ChatAPI(apiConfig); // ★★★ 2. 新增匯出
