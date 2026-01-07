@@ -27,7 +27,6 @@ export const useChatStore = defineStore('chat', () => {
   const fetchHistory = async () => {
     console.log('[ChatStore] 準備呼叫後端 API 獲取歷史訊息...')
     try {
-      // 這裡呼叫後端 REST API
       const response = await chatApi.getPublicHistory()
       console.log('[ChatStore] 歷史訊息獲取成功，筆數:', response.data?.length || 0)
       
@@ -43,29 +42,26 @@ export const useChatStore = defineStore('chat', () => {
   const connect = () => {
     console.log('[ChatStore] connect() 被觸發')
 
-    // 1. 檢查連線狀態
     if (isConnected.value) {
         console.warn('[ChatStore] 狀態顯示已連線，跳過本次連線請求')
         return
     }
 
-    // 2. 檢查 Token
-    const token = userStore.token
+    // --- 修改處 1：直接從 sessionStorage 讀取 Token，確保能抓到值 ---
+    const token = sessionStorage.getItem('jwtToken')
+    
     if (!token) {
         console.error('[ChatStore] ❌ 找不到 Token！請確認使用者是否已登入')
         return
     }
     console.log('[ChatStore] Token 檢查通過:', token.substring(0, 10) + '...')
 
-    // 3. 設定網址 (變數宣告要在物件外面!)
     const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
     const BASE_URL = envUrl.replace(/\/+$/, '')
     const wsUrl = `${BASE_URL}/ws`
     console.log('[ChatStore] 目標 WebSocket 網址:', wsUrl)
 
-    // 建立 STOMP 客戶端
     const client = new Client({
-      // 指向後端的 /ws 端點
       webSocketFactory: () => {
           console.log('[ChatStore] 正在建立 SockJS 物件...')
           return new SockJS(wsUrl)
@@ -75,7 +71,6 @@ export const useChatStore = defineStore('chat', () => {
         Authorization: `Bearer ${token}`
       },
       
-      // ★★★ 開啟 STOMP 除錯模式，這會印出所有底層傳輸細節 ★★★
       debug: (str) => {
         console.log('[STOMP Debug]:', str)
       },
@@ -84,10 +79,8 @@ export const useChatStore = defineStore('chat', () => {
         console.log('[ChatStore] ✅ STOMP 連線成功 (onConnect)！')
         isConnected.value = true
 
-        // 連線成功後，呼叫 API
         fetchHistory()
 
-        // 訂閱頻道
         console.log('[ChatStore] 開始訂閱頻道...')
         
         client.subscribe('/topic/public-chat', (message: Message) => {
@@ -108,12 +101,15 @@ export const useChatStore = defineStore('chat', () => {
           console.log('[ChatStore] 收到語音信令:', message.body)
         })
 
-        // 發送上線通知
         console.log('[ChatStore] 發送上線封包 (JOIN)...')
+        
+        // --- 修改處 2：直接從 sessionStorage 讀取 username ---
+        const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
+        
         client.publish({
           destination: '/app/chat.addUser',
           body: JSON.stringify({
-            sender: userStore.userName,
+            sender: currentUsername,
             type: 'JOIN'
           })
         })
@@ -148,8 +144,12 @@ export const useChatStore = defineStore('chat', () => {
   const sendMessage = (content: string) => {
     if (stompClient.value && isConnected.value) {
       console.log('[ChatStore] 發送訊息:', content)
+      
+      // --- 修改處 3：發送訊息時也確保使用正確的 username ---
+      const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
+
       const chatMessage = {
-        sender: userStore.userName,
+        sender: currentUsername,
         content: content,
         type: 'CHAT'
       }

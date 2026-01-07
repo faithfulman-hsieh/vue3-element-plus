@@ -58,15 +58,17 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const handleSubmit = async () => {
-  localStorage.removeItem('jwtToken');
+  sessionStorage.removeItem('jwtToken');
+  sessionStorage.removeItem('username'); // 確保舊的 username 也被清除
   loading.value = true;
 
   try {
     const response = await authApi.login({ authRequest: form.value });
 
     if (response.data) {
-      localStorage.setItem('jwtToken', response.data);
-      userStore.login();
+      sessionStorage.setItem('jwtToken', response.data);
+      // 修改：將使用者輸入的帳號傳入 login 方法
+      userStore.login(form.value.username);
       ElMessage.success('登入成功，歡迎回來！');
       router.push('/');
     }
@@ -104,7 +106,6 @@ const handleSubmit = async () => {
   padding: 24px;
   max-width: 800px;
   margin: 0 auto;
-  /* 確保背景色適應 */
   background-color: var(--el-bg-color);
 }
 
@@ -112,7 +113,6 @@ const handleSubmit = async () => {
   text-align: center;
   margin-bottom: 30px;
   font-size: 28px;
-  /* Dark Mode 修正 */
   color: var(--el-text-color-primary);
 }
 
@@ -120,7 +120,6 @@ const handleSubmit = async () => {
   text-align: right;
   line-height: 32px;
   font-weight: 500;
-  /* Dark Mode 修正 */
   color: var(--el-text-color-regular);
 }
 
