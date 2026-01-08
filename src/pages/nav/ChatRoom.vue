@@ -26,12 +26,19 @@ onMounted(async () => {
   try {
     const res = await userApi.getUsers();
     if (res.data) {
-      // 排除自己
       const myUsername = userStore.username;
       contactList.value = res.data.filter((u: User) => {
-        // 嘗試抓取各種可能的 ID 欄位 (確保相容性)
-        const uName = u.name || u.username; 
+        // 相容性處理：確保取得正確 ID
+        const uName = u.username || u.name; 
         return uName !== myUsername;
+      });
+
+      // ★★★ 載入每個聯絡人的未讀數量 ★★★
+      contactList.value.forEach(user => {
+        const targetId = user.username || user.name;
+        if (targetId) {
+          chatStore.fetchUnreadCount(targetId);
+        }
       });
     }
   } catch (error) {
@@ -50,12 +57,11 @@ const filteredContacts = computed(() => {
   });
 });
 
-// 過濾並顯示當前對話
+// 過濾顯示訊息
 const currentMessages = computed(() => {
   if (!activeChatUser.value) return [];
   
   const myId = userStore.username; 
-  // 優先使用 username 作為 ID，若無則 fallback 到 name
   const targetId = activeChatUser.value.username || activeChatUser.value.name; 
 
   if (!targetId) return [];
@@ -64,10 +70,7 @@ const currentMessages = computed(() => {
     const sender = msg.sender;
     const receiver = msg.receiver;
 
-    // 情況 A: 我傳給對方
     const sentByMe = sender === myId && receiver === targetId;
-    
-    // 情況 B: 對方傳給我 (包含廣播給我的情況)
     const sentByThem = sender === targetId && (receiver === myId || !receiver);
 
     return sentByMe || sentByThem;
@@ -76,9 +79,20 @@ const currentMessages = computed(() => {
 
 // --- 方法 ---
 
-const selectContact = (user: User) => {
+// ★★★ 選擇聯絡人：載入歷史 + 標記已讀 ★★★
+const selectContact = async (user: User) => {
   activeChatUser.value = user;
-  scrollToBottom();
+  const targetId = user.username || user.name;
+  
+  if (targetId) {
+    // 1. 載入歷史紀錄 (這會從後端 DB 撈取)
+    await chatStore.fetchPrivateHistory(targetId);
+    
+    // 2. 標記已讀 (清除紅點)
+    await chatStore.markRead(targetId);
+    
+    scrollToBottom();
+  }
 };
 
 const handleSendMessage = () => {
@@ -88,7 +102,6 @@ const handleSendMessage = () => {
     return;
   }
 
-  // 確保使用 username 發送
   const targetId = activeChatUser.value.username || activeChatUser.value.name;
   
   if (!targetId) {
@@ -97,7 +110,6 @@ const handleSendMessage = () => {
   }
 
   chatStore.sendMessage(messageInput.value, targetId);
-  
   messageInput.value = '';
   scrollToBottom();
 };
@@ -111,9 +123,15 @@ const scrollToBottom = () => {
   });
 };
 
-watch(() => chatStore.messages.length, () => {
+// 監聽訊息：如果有新訊息且正在該聊天室，自動捲動 + 標記已讀
+watch(() => chatStore.messages.length, async () => {
   if (activeChatUser.value) {
     scrollToBottom();
+    const targetId = activeChatUser.value.username || activeChatUser.value.name;
+    // 如果正在跟這個人聊天，收到新訊息要立刻標為已讀 (避免紅點一直亮著)
+    if (targetId && chatStore.unreadMap[targetId] > 0) {
+        await chatStore.markRead(targetId);
+    }
   }
 });
 </script>
@@ -139,9 +157,15 @@ watch(() => chatStore.messages.length, () => {
             :class="{ active: activeChatUser?.id === user.id }"
             @click="selectContact(user)"
           >
-            <el-avatar :size="40" class="contact-avatar" :style="{ backgroundColor: stringToColor(user.username || '') }">
-              {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
-            </el-avatar>
+            <el-badge 
+              :value="chatStore.unreadMap[user.username || user.name]" 
+              :hidden="!chatStore.unreadMap[user.username || user.name]" 
+              class="avatar-badge"
+            >
+              <el-avatar :size="40" class="contact-avatar" :style="{ backgroundColor: '#409eff' }">
+                {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
+              </el-avatar>
+            </el-badge>
             
             <div class="contact-info">
               <div class="contact-top">
@@ -187,7 +211,7 @@ watch(() => chatStore.messages.length, () => {
                   v-if="msg.sender !== userStore.username"
                   :size="36" 
                   class="msg-avatar"
-                  :style="{ backgroundColor: stringToColor(msg.sender) }"
+                  :style="{ backgroundColor: '#409eff' }"
                 >
                   {{ msg.sender.charAt(0).toUpperCase() }}
                 </el-avatar>
@@ -234,18 +258,8 @@ watch(() => chatStore.messages.length, () => {
   </div>
 </template>
 
-<script lang="ts">
-function stringToColor(str: string) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const c = (hash & 0x00ffffff).toString(16).toUpperCase();
-  return '#' + '00000'.substring(0, 6 - c.length) + c;
-}
-</script>
-
 <style scoped lang="scss">
+/* 保持原有樣式，並新增 Badge 樣式 */
 .chat-container { display: flex; height: calc(100vh - 60px); background-color: #fff; border-top: 1px solid var(--el-border-color-light); }
 .sidebar { width: 320px; border-right: 1px solid var(--el-border-color-light); display: flex; flex-direction: column; background-color: var(--el-fill-color-light); }
 .search-bar { padding: 16px; background-color: #fff; border-bottom: 1px solid var(--el-border-color-lighter); }
@@ -274,5 +288,24 @@ function stringToColor(str: string) {
 .input-area { padding: 16px 24px; background-color: #fff; border-top: 1px solid var(--el-border-color-light); }
 .input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--el-text-color-secondary); background-color: #f5f7fa; p { margin-top: 16px; font-size: 16px; } }
-html.dark { .chat-container, .sidebar, .chat-header, .input-area, .sidebar-footer { background-color: var(--el-bg-color); } .message-area { background-color: #1a1a1a; } .contact-item:hover { background-color: #2c2c2c; } .contact-item.active { background-color: #1e3a5f; } .bubble { background-color: #363636; color: #eee; } .message-row.message-mine .bubble { background-color: #2b5c28; color: #eee; } }
+
+/* ★★★ 新增：Badge 樣式調整 ★★★ */
+.avatar-badge {
+  display: flex;
+  align-items: center;
+  :deep(.el-badge__content) {
+    right: 10px; 
+    top: 0px;
+    z-index: 10;
+  }
+}
+
+html.dark { 
+    .chat-container, .sidebar, .chat-header, .input-area, .sidebar-footer { background-color: var(--el-bg-color); } 
+    .message-area { background-color: #1a1a1a; } 
+    .contact-item:hover { background-color: #2c2c2c; } 
+    .contact-item.active { background-color: #1e3a5f; } 
+    .bubble { background-color: #363636; color: #eee; } 
+    .message-row.message-mine .bubble { background-color: #2b5c28; color: #eee; } 
+}
 </style>

@@ -3,14 +3,14 @@ import { ref } from 'vue'
 import { Client, type Message } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { ElNotification } from 'element-plus'
-import { chatApi } from '../api/client'
+import { chatApi } from '../api/client' // 引用修正後的 client
 
 interface ChatMessage {
   sender: string
   content: string
   type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP'
   time?: string
-  receiver?: string // 新增：接收者欄位
+  receiver?: string
   data?: string
 }
 
@@ -20,7 +20,10 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
   const unreadNotificationCount = ref(0)
   
-  // 獲取歷史訊息
+  // 未讀數量對照表 { username: count }
+  const unreadMap = ref<Record<string, number>>({})
+
+  // 獲取歷史紀錄
   const fetchHistory = async () => {
     try {
       const response = await chatApi.getPublicHistory()
@@ -32,11 +35,41 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 連線到後端 WebSocket
+  // ★★★ 新增：獲取私訊歷史 ★★★
+  const fetchPrivateHistory = async (contactName: string) => {
+    try {
+      const res = await chatApi.getPrivateHistory(contactName)
+      if (res.data) {
+        messages.value = res.data as unknown as ChatMessage[]
+      }
+    } catch (e) {
+      console.error('歷史紀錄獲取失敗', e)
+    }
+  }
+
+  // ★★★ 新增：標記某人已讀 ★★★
+  const markRead = async (contactName: string) => {
+    try {
+      await chatApi.markAsRead(contactName)
+      unreadMap.value[contactName] = 0 // 前端歸零
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // ★★★ 新增：獲取某人的未讀數 ★★★
+  const fetchUnreadCount = async (contactName: string) => {
+    try {
+      const res = await chatApi.getUnreadCount(contactName)
+      unreadMap.value[contactName] = Number(res.data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const connect = () => {
     if (isConnected.value) return
 
-    // 1. 從 sessionStorage 讀取 Token
     const token = sessionStorage.getItem('jwtToken')
     if (!token) {
         console.error('[ChatStore] ❌ 找不到 Token！請確認使用者是否已登入')
@@ -50,14 +83,13 @@ export const useChatStore = defineStore('chat', () => {
     const client = new Client({
       webSocketFactory: () => new SockJS(wsUrl),
       connectHeaders: { Authorization: `Bearer ${token}` },
-      // debug: (str) => console.log(str), // 需要除錯時可打開
 
       onConnect: () => {
         console.log('[ChatStore] ✅ STOMP 連線成功')
         isConnected.value = true
         fetchHistory()
 
-        // 1. 訂閱廣播頻道 (Public)
+        // 訂閱廣播
         client.subscribe('/topic/public-chat', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           if (['CHAT', 'JOIN', 'LEAVE'].includes(body.type)) {
@@ -65,25 +97,24 @@ export const useChatStore = defineStore('chat', () => {
           }
         })
 
-        // 2. ★★★ 新增：訂閱私訊頻道 (Private) ★★★
+        // ★★★ 訂閱私訊：收到訊息時增加未讀數 ★★★
         client.subscribe('/user/queue/messages', (message: Message) => {
-          console.log('[ChatStore] 收到私訊:', message.body)
           const body: ChatMessage = JSON.parse(message.body)
           messages.value.push(body)
+          
+          const currentUser = sessionStorage.getItem('username')
+          // 如果是別人傳給我，增加未讀數
+          if (body.sender !== currentUser) {
+             if (!unreadMap.value[body.sender]) unreadMap.value[body.sender] = 0
+             unreadMap.value[body.sender]++
+          }
         })
 
-        // 3. 訂閱系統通知
         client.subscribe('/user/queue/notifications', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           handleNotification(body)
         })
 
-        // 4. 訂閱 WebRTC 信令
-        client.subscribe('/user/queue/signal', (message: Message) => {
-           // 預留給語音通話
-        })
-
-        // 發送上線通知
         const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
         client.publish({
           destination: '/app/chat.addUser',
@@ -114,19 +145,17 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ 修改：支援發送私訊 ★★★
   const sendMessage = (content: string, receiver?: string) => {
     if (stompClient.value && isConnected.value) {
       const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
       
       const chatMessage = {
         sender: currentUsername,
-        receiver: receiver || undefined, // 如果有接收者就填入
+        receiver: receiver || undefined,
         content: content,
         type: 'CHAT'
       }
 
-      // 判斷是私訊還是廣播
       const destination = receiver ? '/app/chat.sendPrivateMessage' : '/app/chat.sendMessage'
       
       stompClient.value.publish({
@@ -153,9 +182,13 @@ export const useChatStore = defineStore('chat', () => {
     isConnected,
     messages,
     unreadNotificationCount,
+    unreadMap,
     connect,
     disconnect,
     sendMessage,
-    fetchHistory
+    fetchHistory,
+    fetchPrivateHistory,
+    markRead,
+    fetchUnreadCount
   }
 })
