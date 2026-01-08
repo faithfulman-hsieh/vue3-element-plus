@@ -63,7 +63,7 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
       <span>聊天室</span>
     </el-menu-item>
 
-    <el-menu-item index="notification" h="full" @click="handleNotificationClick">
+    <el-menu-item h="full" @click="handleNotificationClick">
        <el-badge 
          :value="chatStore.unreadNotificationCount" 
          :hidden="chatStore.unreadNotificationCount === 0" 
@@ -74,7 +74,7 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
        </el-badge>
     </el-menu-item>
 
-    <el-menu-item index="dark-mode" h="full" @click="toggleDark()">
+    <el-menu-item h="full" @click="toggleDark()">
       <button
         class="w-full cursor-pointer border-none bg-transparent"
         style="height: var(--ep-menu-item-height)"

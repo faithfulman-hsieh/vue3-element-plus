@@ -28,12 +28,10 @@ onMounted(async () => {
     if (res.data) {
       const myUsername = userStore.username;
       contactList.value = res.data.filter((u: User) => {
-        // 相容性處理：確保取得正確 ID
         const uName = u.username || u.name; 
         return uName !== myUsername;
       });
 
-      // ★★★ 載入每個聯絡人的未讀數量 ★★★
       contactList.value.forEach(user => {
         const targetId = user.username || user.name;
         if (targetId) {
@@ -48,7 +46,6 @@ onMounted(async () => {
 });
 
 // --- 計算屬性 ---
-
 const filteredContacts = computed(() => {
   if (!searchText.value) return contactList.value;
   return contactList.value.filter(user => {
@@ -57,7 +54,6 @@ const filteredContacts = computed(() => {
   });
 });
 
-// 過濾顯示訊息
 const currentMessages = computed(() => {
   if (!activeChatUser.value) return [];
   
@@ -78,19 +74,13 @@ const currentMessages = computed(() => {
 });
 
 // --- 方法 ---
-
-// ★★★ 選擇聯絡人：載入歷史 + 標記已讀 ★★★
 const selectContact = async (user: User) => {
   activeChatUser.value = user;
   const targetId = user.username || user.name;
   
   if (targetId) {
-    // 1. 載入歷史紀錄 (這會從後端 DB 撈取)
     await chatStore.fetchPrivateHistory(targetId);
-    
-    // 2. 標記已讀 (清除紅點)
     await chatStore.markRead(targetId);
-    
     scrollToBottom();
   }
 };
@@ -123,12 +113,10 @@ const scrollToBottom = () => {
   });
 };
 
-// 監聽訊息：如果有新訊息且正在該聊天室，自動捲動 + 標記已讀
 watch(() => chatStore.messages.length, async () => {
   if (activeChatUser.value) {
     scrollToBottom();
     const targetId = activeChatUser.value.username || activeChatUser.value.name;
-    // 如果正在跟這個人聊天，收到新訊息要立刻標為已讀 (避免紅點一直亮著)
     if (targetId && chatStore.unreadMap[targetId] > 0) {
         await chatStore.markRead(targetId);
     }
@@ -162,7 +150,11 @@ watch(() => chatStore.messages.length, async () => {
               :hidden="!chatStore.unreadMap[user.username || user.name]" 
               class="avatar-badge"
             >
-              <el-avatar :size="40" class="contact-avatar" :style="{ backgroundColor: '#409eff' }">
+              <el-avatar 
+                :size="40" 
+                class="contact-avatar" 
+                style="background-color: var(--el-color-primary);"
+              >
                 {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
               </el-avatar>
             </el-badge>
@@ -180,13 +172,7 @@ watch(() => chatStore.messages.length, async () => {
         </el-scrollbar>
       </div>
       
-      <div class="sidebar-footer">
-        <el-avatar :size="32" style="background-color: var(--el-color-primary)">
-            {{ userStore.username ? userStore.username.charAt(0).toUpperCase() : 'U' }}
-        </el-avatar>
-        <span class="my-name">{{ userStore.username }}</span>
       </div>
-    </div>
 
     <div class="chat-window">
       <template v-if="activeChatUser">
@@ -195,7 +181,6 @@ watch(() => chatStore.messages.length, async () => {
             <span class="header-name">{{ activeChatUser.name || activeChatUser.username }}</span>
             <span class="header-status">線上</span>
           </div>
-          <el-button :icon="MoreFilled" circle plain />
         </div>
 
         <div class="message-area message-scroll-container">
@@ -211,7 +196,7 @@ watch(() => chatStore.messages.length, async () => {
                   v-if="msg.sender !== userStore.username"
                   :size="36" 
                   class="msg-avatar"
-                  :style="{ backgroundColor: '#409eff' }"
+                  style="background-color: var(--el-color-primary);"
                 >
                   {{ msg.sender.charAt(0).toUpperCase() }}
                 </el-avatar>
@@ -251,7 +236,7 @@ watch(() => chatStore.messages.length, async () => {
       </template>
 
       <div v-else class="empty-state">
-        <el-icon :size="100" color="#dcdfe6"><UserFilled /></el-icon>
+        <el-icon :size="100" class="empty-icon"><UserFilled /></el-icon>
         <p>請從左側選擇一位聯絡人開始聊天</p>
       </div>
     </div>
@@ -259,53 +244,235 @@ watch(() => chatStore.messages.length, async () => {
 </template>
 
 <style scoped lang="scss">
-/* 保持原有樣式，並新增 Badge 樣式 */
-.chat-container { display: flex; height: calc(100vh - 60px); background-color: #fff; border-top: 1px solid var(--el-border-color-light); }
-.sidebar { width: 320px; border-right: 1px solid var(--el-border-color-light); display: flex; flex-direction: column; background-color: var(--el-fill-color-light); }
-.search-bar { padding: 16px; background-color: #fff; border-bottom: 1px solid var(--el-border-color-lighter); }
-.contact-list { flex: 1; overflow: hidden; }
-.contact-item { display: flex; padding: 12px 16px; cursor: pointer; transition: background-color 0.2s; border-bottom: 1px solid var(--el-border-color-lighter); &:hover { background-color: #f5f7fa; } &.active { background-color: #e6f7ff; border-right: 3px solid var(--el-color-primary); } }
-.contact-avatar { margin-right: 12px; flex-shrink: 0; color: #fff; font-weight: bold; }
-.contact-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.contact-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.contact-name { font-weight: 600; color: var(--el-text-color-primary); font-size: 15px; }
-.contact-time { font-size: 12px; color: var(--el-text-color-secondary); }
-.contact-preview { font-size: 13px; color: var(--el-text-color-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--el-border-color-light); background-color: #fff; display: flex; align-items: center; gap: 10px; }
-.my-name { font-weight: bold; font-size: 14px; }
-.chat-window { flex: 1; display: flex; flex-direction: column; background-color: #fff; }
-.chat-header { height: 64px; padding: 0 24px; border-bottom: 1px solid var(--el-border-color-light); display: flex; align-items: center; justify-content: space-between; background-color: #fff; }
-.header-name { font-size: 18px; font-weight: 600; margin-right: 8px; }
-.header-status { font-size: 12px; color: #67c23a; background: #f0f9eb; padding: 2px 6px; border-radius: 4px; }
-.message-area { flex: 1; background-color: #f2f4f5; padding: 20px 0; overflow: hidden; }
-.message-list { padding: 0 24px; }
-.message-row { display: flex; margin-bottom: 20px; align-items: flex-start; &.message-mine { flex-direction: row-reverse; .msg-avatar { margin-left: 12px; margin-right: 0; } .message-content-wrapper { align-items: flex-end; } .bubble { background-color: #95ec69; color: #000; border-radius: 8px 0 8px 8px; } } }
-.msg-avatar { margin-right: 12px; flex-shrink: 0; color: #fff; font-size: 14px; }
-.message-content-wrapper { display: flex; flex-direction: column; max-width: 70%; }
-.sender-name { font-size: 12px; color: var(--el-text-color-secondary); margin-bottom: 4px; }
-.bubble { padding: 10px 14px; background-color: #fff; color: var(--el-text-color-primary); border-radius: 0 8px 8px 8px; font-size: 15px; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); word-wrap: break-word; white-space: pre-wrap; }
-.no-message-tip { text-align: center; color: #999; margin-top: 40px; font-size: 14px; }
-.input-area { padding: 16px 24px; background-color: #fff; border-top: 1px solid var(--el-border-color-light); }
-.input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--el-text-color-secondary); background-color: #f5f7fa; p { margin-top: 16px; font-size: 16px; } }
+/* =========================================
+   LIGHT MODE (預設 / 亮色模式)
+   ========================================= */
 
-/* ★★★ 新增：Badge 樣式調整 ★★★ */
-.avatar-badge {
+/* 1. 外框容器 */
+.chat-container {
   display: flex;
-  align-items: center;
-  :deep(.el-badge__content) {
-    right: 10px; 
-    top: 0px;
-    z-index: 10;
+  height: calc(100vh - 60px);
+  background-color: #ffffff;
+  border-top: 1px solid #dcdfe6;
+  padding-right: 16px;
+  padding-bottom: 16px;
+  box-sizing: border-box;
+}
+
+/* 2. 側邊欄 */
+.sidebar {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background-color: #f7f8fa; /* 淺灰背景 */
+  border-right: 1px solid #e4e7ed; 
+}
+
+.search-bar {
+  padding: 16px;
+  background-color: #f7f8fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.contact-item {
+  display: flex;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #ebeef5;
+  transition: background-color 0.2s;
+  
+  &:hover { background-color: #e6e8eb; }
+  &.active { 
+    background-color: #ecf5ff; 
+    border-right: 3px solid #01831f;
   }
 }
 
-html.dark { 
-    .chat-container, .sidebar, .chat-header, .input-area, .sidebar-footer { background-color: var(--el-bg-color); } 
-    .message-area { background-color: #1a1a1a; } 
-    .contact-item:hover { background-color: #2c2c2c; } 
-    .contact-item.active { background-color: #1e3a5f; } 
-    .bubble { background-color: #363636; color: #eee; } 
-    .message-row.message-mine .bubble { background-color: #2b5c28; color: #eee; } 
+/* 3. 聊天主視窗 */
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff; 
+}
+
+/* Header & Input */
+.chat-header {
+  height: 64px;
+  padding: 0 24px;
+  background-color: #ffffff; 
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  z-index: 5;
+}
+
+.input-area {
+  padding: 16px 20px;
+  background-color: #ffffff;
+  border-top: 1px solid #e4e7ed;
+  box-sizing: border-box;
+  box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+  z-index: 5;
+}
+
+/* 訊息區 */
+.message-area {
+  flex: 1;
+  background-color: #f0f2f5; /* 淺灰底色，與白色的氣泡形成對比 */
+  padding: 20px 0;
+  overflow: hidden;
+}
+
+/* 字體與狀態 */
+.contact-name, .header-name { color: #303133; font-weight: 600; font-size: 15px; }
+.contact-preview, .contact-time, .sender-name { color: #909399; font-size: 12px; }
+.header-status { font-size: 12px; color: #67c23a; background: #f0f9eb; padding: 2px 6px; border-radius: 4px; }
+
+/* 氣泡 */
+.bubble {
+  padding: 10px 14px;
+  background-color: #ffffff;
+  color: #303133;
+  border-radius: 0 8px 8px 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.message-mine .bubble {
+  background-color: #95ec69; /* 綠底 */
+  color: #000000; /* 黑字 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.no-message-tip, .empty-state { color: #909399; }
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f2f5;
+  padding-bottom: 24px;
+}
+.empty-icon { color: #c0c4cc; }
+
+/* ★★★ Avatar Light Mode 修改 ★★★ */
+/* 綠底黑字 + 淺色邊框 */
+.contact-avatar, .msg-avatar {
+  margin-right: 12px;
+  flex-shrink: 0;
+  background-color: #b2ed95 !important; /* 強制綠色 */
+  color: #000000 !important; /* 強制黑色 */
+  font-weight: bold;
+  border: 1px solid rgba(0, 0, 0, 0.1); /* 淺黑邊框 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+
+/* =========================================
+   DARK MODE (深色模式)
+   ========================================= */
+
+html.dark {
+  .chat-container { background-color: #141414; border-color: #4c4d4f; }
+  
+  .sidebar, .search-bar {
+    background-color: #1d1e1f;
+    border-right: 1px solid #363637;
+    border-bottom: 1px solid #363637;
+  }
+  
+  .contact-item {
+    border-color: #2c2c2c;
+    &:hover { background-color: #262727; }
+    &.active { background-color: #18222c; border-right-color: #409eff; }
+  }
+
+  .chat-header {
+    background-color: #1d1e1f;
+    border-bottom: 1px solid #363637;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  
+  .input-area {
+    background-color: #1d1e1f;
+    border-top: 1px solid #363637;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.3);
+  }
+
+  .message-area, .empty-state { background-color: #000000; }
+
+  /* 字體 */
+  .contact-name, .header-name { color: #e5eaf3; }
+  .contact-preview, .contact-time, .sender-name, .no-message-tip, .empty-state p { color: #a3a6ad; }
+ .header-status { font-size: 12px; color: #67c23a; background: #f0f9eb; padding: 2px 6px; border-radius: 4px; }
+
+  /* 氣泡 */
+  .bubble {
+    background-color: #2b2b2b;
+    color: #e5eaf3;
+    border: 1px solid #4c4d4f;
+  }
+  .message-mine .bubble {
+    background-color: #337ecc; /* Dark Mode 維持藍色比較好看 */
+    color: #ffffff;
+    border: none;
+  }
+  .empty-icon { color: #4c4d4f; }
+
+  /* ★★★ Avatar Dark Mode 覆蓋 ★★★ */
+  /* 回到藍底白字 + 灰色邊框 */
+  .contact-avatar, .msg-avatar {
+    background-color: #409eff !important; 
+    color: #fff !important; 
+    border: 2px solid #4c4d4f; 
+    box-shadow: 0 0 4px rgba(0,0,0,0.5); 
+  }
+  
+  .contact-item.active .contact-avatar {
+    border-color: #66b1ff;
+  }
+  
+  /* Dark Mode Badge 邊框 */
+  .avatar-badge :deep(.el-badge__content) {
+    border-color: #1d1e1f;
+  }
+}
+
+/* 通用設定 */
+.contact-list { flex: 1; overflow: hidden; }
+.contact-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.message-list { padding: 0 24px; }
+.message-row { display: flex; margin-bottom: 20px; align-items: flex-start; }
+.message-mine { flex-direction: row-reverse; }
+.message-mine .msg-avatar { margin-left: 12px; margin-right: 0; }
+.message-mine .message-content-wrapper { align-items: flex-end; }
+.message-content-wrapper { display: flex; flex-direction: column; max-width: 70%; }
+.input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+/* Badge 通用設定 (Light Mode 預設) */
+.avatar-badge {
+  display: flex;
+  align-items: center;
+  position: relative;
+  
+  :deep(.el-badge__content) {
+    right: 5px; 
+    top: 5px;
+    z-index: 10;
+    
+    /* Light Mode: 白色邊框 + 陰影 */
+    border: 2px solid #fff; 
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
+    
+    transform: translateY(-50%) translateX(50%);
+  }
 }
 </style>
