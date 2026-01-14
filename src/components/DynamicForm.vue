@@ -7,6 +7,7 @@
           v-if="field.type === 'text' || field.type === 'string'" 
           v-model="formData[field.key]" 
           :placeholder="`請輸入${field.label}`"
+          :disabled="field.disabled"
         />
 
         <el-input-number 
@@ -14,6 +15,7 @@
           v-model="formData[field.key]" 
           :min="0"
           style="width: 100%"
+          :disabled="field.disabled"
         />
 
         <el-date-picker
@@ -23,6 +25,7 @@
           placeholder="選擇日期"
           style="width: 100%"
           value-format="YYYY-MM-DD"
+          :disabled="field.disabled"
         />
 
         <el-select 
@@ -30,6 +33,7 @@
           v-model="formData[field.key]" 
           placeholder="請選擇"
           style="width: 100%"
+          :disabled="field.disabled"
         >
           <el-option
             v-for="opt in field.options"
@@ -42,6 +46,7 @@
         <el-checkbox-group 
           v-else-if="field.type === 'checkbox-group'" 
           v-model="formData[field.key]"
+          :disabled="field.disabled"
         >
           <el-checkbox 
             v-for="opt in field.options" 
@@ -56,6 +61,7 @@
           v-else 
           v-model="formData[field.key]" 
           :placeholder="`請輸入${field.label}`"
+          :disabled="field.disabled"
         />
       </el-form-item>
     </template>
@@ -81,7 +87,9 @@ interface FormField {
   label: string;
   type: string;
   required?: boolean;
-  options?: Option[]; // 支援選項
+  disabled?: boolean; // 確保介面定義包含 disabled
+  value?: any;        // 確保介面定義包含 value (後端傳來的值)
+  options?: Option[]; 
 }
 
 const props = defineProps({
@@ -107,9 +115,13 @@ const initForm = () => {
   Object.keys(rules).forEach(key => delete rules[key]);
 
   props.fields.forEach(field => {
-    // 預設值初始化
-    if (field.type === 'checkbox-group') {
-      formData[field.key] = []; // 陣列類型
+    // ★★★ 修正處：優先使用後端傳回的 value ★★★
+    if (field.value !== undefined && field.value !== null) {
+      formData[field.key] = field.value;
+    } 
+    // 若沒有值，才進行預設初始化
+    else if (field.type === 'checkbox-group') {
+      formData[field.key] = []; 
     } else {
       formData[field.key] = '';
     }
