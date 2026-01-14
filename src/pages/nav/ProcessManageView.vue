@@ -285,7 +285,7 @@ const handleDynamicSubmit = async (formData: any) => {
 const handleDownloadTemplate = async () => {
   try {
     downloadLoading.value = true;
-    const filename = 'leaveProcess.bpmn20.xml';
+    const filename = 'templateProcess.bpmn20.xml';
     
     const response = await processApi.downloadTemplate(filename);
     
