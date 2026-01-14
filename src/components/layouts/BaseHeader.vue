@@ -48,7 +48,7 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
     <el-menu-item index="/">
       <div class="flex items-center justify-center gap-2">
         <img :src="logoUrl" alt="JProject Logo" class="w-8 h-8 logo-hover" />
-        <span>JProject 展示平台</span>
+        <span>JProject 展示平台v1.0</span>
       </div>
     </el-menu-item>
     <el-menu-item index="/about">
