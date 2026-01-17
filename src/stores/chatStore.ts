@@ -23,6 +23,9 @@ export const useChatStore = defineStore('chat', () => {
   // 未讀數量對照表 { username: count }
   const unreadMap = ref<Record<string, number>>({})
 
+  // ★★★ [線上使用者狀態] 新增：線上名單 ★★★
+  const onlineUsers = ref<Set<string>>(new Set())
+
   // 獲取歷史紀錄
   const fetchHistory = async () => {
     try {
@@ -32,6 +35,18 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       console.error('[ChatStore] ❌ 無法載入聊天紀錄:', error)
+    }
+  }
+
+  // ★★★ [線上使用者狀態] 新增：從後端同步初始名單 ★★★
+  const fetchOnlineUsers = async () => {
+    try {
+      const res = await chatApi.getOnlineUsers()
+      if (res.data && Array.isArray(res.data)) {
+        res.data.forEach((user: string) => onlineUsers.value.add(user))
+      }
+    } catch (e) {
+      console.error('[ChatStore] 無法取得線上名單', e)
     }
   }
 
@@ -88,10 +103,20 @@ export const useChatStore = defineStore('chat', () => {
         console.log('[ChatStore] ✅ STOMP 連線成功')
         isConnected.value = true
         fetchHistory()
+        // ★★★ [線上使用者狀態] 連線成功後，立即拉取線上名單 ★★★
+        fetchOnlineUsers()
 
         // 訂閱廣播
         client.subscribe('/topic/public-chat', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
+          
+          // ★★★ [線上使用者狀態] 根據廣播即時更新名單 ★★★
+          if (body.type === 'JOIN') {
+            onlineUsers.value.add(body.sender)
+          } else if (body.type === 'LEAVE') {
+            onlineUsers.value.delete(body.sender)
+          }
+
           if (['CHAT', 'JOIN', 'LEAVE'].includes(body.type)) {
             messages.value.push(body)
           }
@@ -130,6 +155,7 @@ export const useChatStore = defineStore('chat', () => {
       onWebSocketClose: () => {
         console.warn('[ChatStore] WebSocket 連線斷開')
         isConnected.value = false
+        onlineUsers.value.clear() // ★★★ [線上使用者狀態] 斷線時清空名單 ★★★
       }
     })
 
@@ -142,6 +168,7 @@ export const useChatStore = defineStore('chat', () => {
       stompClient.value.deactivate()
       stompClient.value = null
       isConnected.value = false
+      onlineUsers.value.clear() // ★★★ [線上使用者狀態] 斷線時清空名單 ★★★
     }
   }
 
@@ -183,12 +210,14 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     unreadNotificationCount,
     unreadMap,
+    onlineUsers, // ★★★ [線上使用者狀態] 匯出變數供 UI 使用 ★★★
     connect,
     disconnect,
     sendMessage,
     fetchHistory,
     fetchPrivateHistory,
     markRead,
-    fetchUnreadCount
+    fetchUnreadCount,
+    fetchOnlineUsers // ★★★ [線上使用者狀態] 匯出函式 ★★★
   }
 })

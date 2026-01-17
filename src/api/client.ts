@@ -58,6 +58,8 @@ export const chatApi = {
   getUnreadCount: (contact: string) => chatAxios.get(`/api/chat/unread/${contact}`),
   // 新增功能：標記已讀
   markAsRead: (contact: string) => chatAxios.post(`/api/chat/read/${contact}`),
+  // ★★★ [線上使用者狀態] 新增：取得線上使用者名單 ★★★
+  getOnlineUsers: () => chatAxios.get('/api/chat/online-users'),
 };
 
 export default chatAxios;

@@ -150,19 +150,27 @@ watch(() => chatStore.messages.length, async () => {
               :hidden="!chatStore.unreadMap[user.username || user.name]" 
               class="avatar-badge"
             >
-              <el-avatar 
-                :size="40" 
-                class="contact-avatar" 
-                style="background-color: var(--el-color-primary);"
-              >
-                {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
-              </el-avatar>
+              <div class="avatar-wrapper">
+                <el-avatar 
+                  :size="40" 
+                  class="contact-avatar" 
+                  style="background-color: var(--el-color-primary);"
+                >
+                  {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
+                </el-avatar>
+                <span 
+                  v-if="chatStore.onlineUsers.has(user.username || user.name)" 
+                  class="online-dot"
+                ></span>
+              </div>
             </el-badge>
             
             <div class="contact-info">
               <div class="contact-top">
                 <span class="contact-name">{{ user.name || user.username }}</span>
-                <span class="contact-time"></span>
+                <span class="contact-time" :style="{ color: chatStore.onlineUsers.has(user.username || user.name) ? '#67c23a' : '' }">
+                   {{ chatStore.onlineUsers.has(user.username || user.name) ? '線上' : '' }}
+                </span>
               </div>
               <div class="contact-preview">
                 點擊開始聊天...
@@ -179,7 +187,8 @@ watch(() => chatStore.messages.length, async () => {
         <div class="chat-header">
           <div class="header-info">
             <span class="header-name">{{ activeChatUser.name || activeChatUser.username }}</span>
-            <span class="header-status">線上</span>
+            <span class="header-status" v-if="chatStore.onlineUsers.has(activeChatUser.username || activeChatUser.name)">線上</span>
+            <span class="header-status" v-else style="background: #f4f4f5; color: #909399;">離線</span>
           </div>
         </div>
 
@@ -247,6 +256,26 @@ watch(() => chatStore.messages.length, async () => {
 /* =========================================
    LIGHT MODE (預設 / 亮色模式)
    ========================================= */
+
+/* ★★★ [線上使用者狀態] Avatar Wrapper: 用於定位綠燈 ★★★ */
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* ★★★ [線上使用者狀態] 綠燈樣式 ★★★ */
+.online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background-color: #67c23a; /* Element Plus Success Color */
+  border: 2px solid #ffffff; 
+  border-radius: 50%;
+  z-index: 10;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
 
 /* 1. 外框容器 */
 .chat-container {
