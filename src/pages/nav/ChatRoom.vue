@@ -3,10 +3,10 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-import { Search, Promotion, UserFilled, MoreFilled, ArrowDown } from '@element-plus/icons-vue'; // ★★★ [智慧捲動] 補上 ArrowDown Icon ★★★
+import { Search, Promotion, UserFilled, MoreFilled, ArrowDown } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
-import type { ElScrollbar } from 'element-plus'; // ★★★ [智慧捲動] 引入型別 ★★★
+import type { ElScrollbar } from 'element-plus'; 
 
 const userStore = useUserStore();
 const chatStore = useChatStore();
@@ -16,13 +16,12 @@ const contactList = ref<User[]>([]);
 const searchText = ref(''); 
 const activeChatUser = ref<User | null>(null); 
 const messageInput = ref(''); 
-// ★★★ [智慧捲動] 指定 Scrollbar 型別以存取 wrapRef ★★★
 const scrollbarRef = ref<InstanceType<typeof ElScrollbar> | null>(null);
 
 // ★★★ [智慧捲動] 新增捲動相關狀態 ★★★
-const isAtBottom = ref(true); // 預設視為在底部
-const showScrollButton = ref(false); // 控制懸浮按鈕
-const newMsgCount = ref(0); // 累積多少條新訊息沒看
+const isAtBottom = ref(true); 
+const showScrollButton = ref(false); 
+const newMsgCount = ref(0); 
 
 // ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
@@ -97,7 +96,7 @@ const selectContact = async (user: User) => {
   if (targetId) {
     await chatStore.fetchPrivateHistory(targetId);
     await chatStore.markRead(targetId);
-    scrollToBottom(true); // ★★★ [智慧捲動] 切換聯絡人時強制跳轉到底部 ★★★
+    scrollToBottom(true); 
   }
 };
 
@@ -117,16 +116,13 @@ const handleSendMessage = () => {
 
   chatStore.sendMessage(messageInput.value, targetId);
   messageInput.value = '';
-  // 注意：這裡移除了原本手動的 scrollToBottom()，改由 watch 統一處理
 };
 
 // ★★★ [輸入中提示] 處理輸入事件 ★★★
 const handleTyping = () => {
   const now = Date.now();
-  // 限制每 2 秒最多發送一次 typing 訊號 (Throttle)
   if (now - lastTypingTime > 2000) {
     const targetId = activeChatUser.value?.username || activeChatUser.value?.name;
-    // 如果沒有 targetId，代表是公開頻道 (undefined)
     chatStore.sendTyping(targetId);
     lastTypingTime = now;
   }
@@ -134,18 +130,15 @@ const handleTyping = () => {
 
 // ★★★ [智慧捲動] 捲動事件監聽：判斷是否在底部 ★★★
 const onScroll = ({ scrollTop }: { scrollTop: number }) => {
-  const wrap = scrollbarRef.value?.wrapRef; // 取得捲動容器 DOM
+  const wrap = scrollbarRef.value?.wrapRef; 
   if (!wrap) return;
 
-  // 容許 50px 的誤差值
   const threshold = 50;
-  // 判斷公式：內容總高度 - 捲動位置 - 視窗高度 <= 誤差值
   const isBottom = wrap.scrollHeight - scrollTop - wrap.clientHeight <= threshold;
   
   isAtBottom.value = isBottom;
-  showScrollButton.value = !isBottom; // 如果不在底部，顯示按鈕
+  showScrollButton.value = !isBottom; 
 
-  // 如果使用者自己捲回底部，清空新訊息提示計數
   if (isBottom) {
     newMsgCount.value = 0;
   }
@@ -156,13 +149,10 @@ const scrollToBottom = (force: boolean = false) => {
   nextTick(() => {
     const wrap = scrollbarRef.value?.wrapRef;
     if (wrap) {
-      // 如果是強制 (如發送訊息) 或切換視窗，直接跳轉 ('auto')
-      // 如果是點擊按鈕或新訊息自動滾動，可以使用 smooth behavior ('smooth')
       wrap.scrollTo({
         top: wrap.scrollHeight,
         behavior: force ? 'auto' : 'smooth' 
       });
-      // 確保狀態同步
       newMsgCount.value = 0;
     }
   });
@@ -174,24 +164,18 @@ watch(
   async (newLen, oldLen) => {
     if (!activeChatUser.value) return;
 
-    // 取得最新一則訊息
     const lastMsg = chatStore.messages[chatStore.messages.length - 1];
     if (!lastMsg) return;
 
     const myUsername = userStore.username;
     const isMyMsg = lastMsg.sender === myUsername;
 
-    // 判斷是否需要自動捲動
-    // 情境 C: 是我自己發的訊息 -> 強制捲動
-    // 情境 A: 我原本就在最底部 -> 自動捲動
     if (isMyMsg || isAtBottom.value) {
-      scrollToBottom(isMyMsg); // 自己發的用瞬間跳轉(auto)，別人的用平滑(smooth)效果
+      scrollToBottom(isMyMsg); 
     } else {
-      // 情境 B: 我正在看歷史訊息 -> 不捲動，但增加未讀提示
       newMsgCount.value++;
     }
 
-    // 已讀邏輯保持不變
     const targetId = activeChatUser.value.username || activeChatUser.value.name;
     if (targetId && chatStore.unreadMap[targetId] > 0) {
         await chatStore.markRead(targetId);
@@ -303,6 +287,10 @@ watch(
                   </div>
                   <div class="bubble">
                     {{ msg.content }}
+                  </div>
+                  <div v-if="msg.sender === userStore.username" class="message-status">
+                    <span v-if="msg.read" class="read-text">已讀</span>
+                    <span v-else class="unread-text">送達</span>
                   </div>
                 </div>
               </div>
@@ -460,7 +448,7 @@ watch(
   background-color: #f0f2f5; 
   padding: 20px 0;
   overflow: hidden;
-  position: relative; /* ★★★ [智慧捲動] 為了絕對定位懸浮按鈕 ★★★ */
+  position: relative; 
 }
 
 /* 字體與狀態 */
@@ -553,6 +541,17 @@ watch(
   }
 }
 
+/* ★★★ [即時已讀回執] 已讀狀態樣式 ★★★ */
+.message-status {
+  text-align: right;
+  font-size: 11px;
+  margin-top: 2px;
+  margin-right: 2px;
+}
+.read-text { color: #67c23a; } /* 綠色已讀 */
+.unread-text { color: #909399; } /* 灰色送達 */
+
+
 /* =========================================
    DARK MODE (深色模式)
    ========================================= */
@@ -618,17 +617,12 @@ html.dark {
     border-color: #1d1e1f;
   }
 
-  /* ★★★ [智慧捲動] Dark Mode 懸浮按鈕 ★★★ */
   .scroll-bottom-btn .btn-circle {
     background-color: #2b2b2b;
     color: #e5eaf3;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.5);
-    
-    &:hover {
-      background-color: #363637;
-    }
+    &:hover { background-color: #363637; }
   }
-
   .scroll-bottom-btn .new-msg-text {
     background: #2b2b2b;
     color: #66b1ff;

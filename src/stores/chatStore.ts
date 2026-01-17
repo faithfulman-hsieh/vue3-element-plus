@@ -8,10 +8,13 @@ import { chatApi } from '../api/client'
 interface ChatMessage {
   sender: string
   content: string
-  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING'
+  // ★★★ [即時已讀回執] 增加 READ 類型 ★★★
+  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ'
   time?: string
   receiver?: string
   data?: string
+  // ★★★ [即時已讀回執] 增加已讀狀態屬性 ★★★
+  read?: boolean
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -25,7 +28,6 @@ export const useChatStore = defineStore('chat', () => {
   const typingUsers = ref<Set<string>>(new Set())
   const typingTimeouts = new Map<string, any>()
 
-  // 獲取歷史紀錄
   const fetchHistory = async () => {
     try {
       const response = await chatApi.getPublicHistory()
@@ -37,7 +39,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 從後端同步初始名單
   const fetchOnlineUsers = async () => {
     try {
       const res = await chatApi.getOnlineUsers()
@@ -49,7 +50,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 獲取私訊歷史
   const fetchPrivateHistory = async (contactName: string) => {
     try {
       const res = await chatApi.getPrivateHistory(contactName)
@@ -61,7 +61,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 標記某人已讀
   const markRead = async (contactName: string) => {
     try {
       await chatApi.markAsRead(contactName)
@@ -71,7 +70,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 獲取某人的未讀數
   const fetchUnreadCount = async (contactName: string) => {
     try {
       const res = await chatApi.getUnreadCount(contactName)
@@ -81,9 +79,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [Fix Duplicate Messages] 強化連線邏輯 ★★★
   const connect = () => {
-    // 1. 如果已經有 Client 實例，先強制關閉，避免多重連線
     if (stompClient.value) {
       console.warn('[ChatStore] ⚠️ 偵測到殘留連線，正在清理舊連線以避免重複訂閱...')
       try {
@@ -105,11 +101,10 @@ export const useChatStore = defineStore('chat', () => {
     const BASE_URL = envUrl.replace(/\/+$/, '')
     const wsUrl = `${BASE_URL}/ws`
 
-    // 2. 建立新連線
     const client = new Client({
       webSocketFactory: () => new SockJS(wsUrl),
       connectHeaders: { Authorization: `Bearer ${token}` },
-      reconnectDelay: 5000, // 自動重連
+      reconnectDelay: 5000,
 
       onConnect: () => {
         console.log('[ChatStore] ✅ STOMP 連線成功')
@@ -117,7 +112,6 @@ export const useChatStore = defineStore('chat', () => {
         fetchHistory()
         fetchOnlineUsers()
 
-        // 訂閱廣播
         client.subscribe('/topic/public-chat', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           
@@ -137,10 +131,21 @@ export const useChatStore = defineStore('chat', () => {
           }
         })
 
-        // 訂閱私訊
         client.subscribe('/user/queue/messages', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           
+          // ★★★ [即時已讀回執] 收到已讀訊號：更新本地訊息狀態 ★★★
+          if (body.type === 'READ') {
+            const reader = body.sender
+            const myUsername = sessionStorage.getItem('username')
+            messages.value.forEach(msg => {
+                if (msg.receiver === reader && msg.sender === myUsername) {
+                    msg.read = true
+                }
+            })
+            return
+          }
+
           if (body.type === 'TYPING') {
             handleTypingSignal(body.sender)
             return
@@ -155,13 +160,11 @@ export const useChatStore = defineStore('chat', () => {
           }
         })
 
-        // 訂閱通知
         client.subscribe('/user/queue/notifications', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           handleNotification(body)
         })
 
-        // 發送上線通知
         const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
         client.publish({
           destination: '/app/chat.addUser',
@@ -171,7 +174,6 @@ export const useChatStore = defineStore('chat', () => {
 
       onStompError: (frame) => {
         console.error('[ChatStore] STOMP 錯誤:', frame.headers['message'])
-        // 不要在此處設 isConnected = false，讓 stompjs 的重連機制處理
       },
 
       onWebSocketClose: () => {
@@ -182,7 +184,6 @@ export const useChatStore = defineStore('chat', () => {
       }
     })
 
-    // 3. 立即賦值給 stompClient，防止快速連續呼叫時建立多個 Client
     stompClient.value = client
     client.activate()
   }
@@ -215,15 +216,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [Fix Duplicate Messages] 斷線時徹底清理 ★★★
   const disconnect = () => {
     if (stompClient.value) {
-      console.log('[ChatStore] 主動斷開連線...')
       try {
         stompClient.value.deactivate()
-      } catch (e) {
-        // 忽略斷線錯誤
-      }
+      } catch (e) {}
       stompClient.value = null
       isConnected.value = false
       onlineUsers.value.clear() 
@@ -239,7 +236,8 @@ export const useChatStore = defineStore('chat', () => {
         sender: currentUsername,
         receiver: receiver || undefined,
         content: content,
-        type: 'CHAT'
+        type: 'CHAT',
+        read: false // 預設未讀
       }
 
       const destination = receiver ? '/app/chat.sendPrivateMessage' : '/app/chat.sendMessage'
