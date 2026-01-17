@@ -17,6 +17,9 @@ const activeChatUser = ref<User | null>(null);
 const messageInput = ref(''); 
 const scrollbarRef = ref<HTMLElement | null>(null);
 
+// ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
+let lastTypingTime = 0;
+
 // --- 載入資料 ---
 onMounted(async () => {
   if (!chatStore.isConnected) {
@@ -104,6 +107,18 @@ const handleSendMessage = () => {
   scrollToBottom();
 };
 
+// ★★★ [輸入中提示] 處理輸入事件 ★★★
+const handleTyping = () => {
+  const now = Date.now();
+  // 限制每 2 秒最多發送一次 typing 訊號 (Throttle)
+  if (now - lastTypingTime > 2000) {
+    const targetId = activeChatUser.value?.username || activeChatUser.value?.name;
+    // 如果沒有 targetId，代表是公開頻道 (undefined)
+    chatStore.sendTyping(targetId);
+    lastTypingTime = now;
+  }
+};
+
 const scrollToBottom = () => {
   nextTick(() => {
     const container = document.querySelector('.message-scroll-container .el-scrollbar__wrap');
@@ -173,7 +188,10 @@ watch(() => chatStore.messages.length, async () => {
                 </span>
               </div>
               <div class="contact-preview">
-                點擊開始聊天...
+                <span v-if="chatStore.typingUsers.has(user.username || user.name)" style="color: #409eff;">
+                  正在輸入...
+                </span>
+                <span v-else>點擊開始聊天...</span>
               </div>
             </div>
           </div>
@@ -187,8 +205,16 @@ watch(() => chatStore.messages.length, async () => {
         <div class="chat-header">
           <div class="header-info">
             <span class="header-name">{{ activeChatUser.name || activeChatUser.username }}</span>
-            <span class="header-status" v-if="chatStore.onlineUsers.has(activeChatUser.username || activeChatUser.name)">線上</span>
-            <span class="header-status" v-else style="background: #f4f4f5; color: #909399;">離線</span>
+            
+            <span class="header-status typing" v-if="chatStore.typingUsers.has(activeChatUser.username || activeChatUser.name)">
+              正在輸入...
+            </span>
+            <span class="header-status" v-else-if="chatStore.onlineUsers.has(activeChatUser.username || activeChatUser.name)">
+              線上
+            </span>
+            <span class="header-status" v-else style="background: #f4f4f5; color: #909399;">
+              離線
+            </span>
           </div>
         </div>
 
@@ -234,11 +260,18 @@ watch(() => chatStore.messages.length, async () => {
             :rows="3"
             placeholder="輸入訊息..."
             resize="none"
+            :disabled="!chatStore.isConnected" 
+            @input="handleTyping"
             @keydown.enter.prevent="handleSendMessage"
           />
           <div class="input-actions">
-            <el-button type="primary" :icon="Promotion" @click="handleSendMessage">
-              傳送
+            <el-button 
+              type="primary" 
+              :icon="Promotion" 
+              @click="handleSendMessage"
+              :disabled="!chatStore.isConnected"
+            >
+              {{ chatStore.isConnected ? '傳送' : '連線中...' }}
             </el-button>
           </div>
         </div>
@@ -257,20 +290,18 @@ watch(() => chatStore.messages.length, async () => {
    LIGHT MODE (預設 / 亮色模式)
    ========================================= */
 
-/* ★★★ [線上使用者狀態] Avatar Wrapper: 用於定位綠燈 ★★★ */
 .avatar-wrapper {
   position: relative;
   display: inline-block;
 }
 
-/* ★★★ [線上使用者狀態] 綠燈樣式 ★★★ */
 .online-dot {
   position: absolute;
   bottom: 0;
   right: 0;
   width: 10px;
   height: 10px;
-  background-color: #67c23a; /* Element Plus Success Color */
+  background-color: #67c23a; 
   border: 2px solid #ffffff; 
   border-radius: 50%;
   z-index: 10;
@@ -293,7 +324,7 @@ watch(() => chatStore.messages.length, async () => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  background-color: #f7f8fa; /* 淺灰背景 */
+  background-color: #f7f8fa; 
   border-right: 1px solid #e4e7ed; 
 }
 
@@ -350,7 +381,7 @@ watch(() => chatStore.messages.length, async () => {
 /* 訊息區 */
 .message-area {
   flex: 1;
-  background-color: #f0f2f5; /* 淺灰底色，與白色的氣泡形成對比 */
+  background-color: #f0f2f5; 
   padding: 20px 0;
   overflow: hidden;
 }
@@ -359,6 +390,9 @@ watch(() => chatStore.messages.length, async () => {
 .contact-name, .header-name { color: #303133; font-weight: 600; font-size: 15px; }
 .contact-preview, .contact-time, .sender-name { color: #909399; font-size: 12px; }
 .header-status { font-size: 12px; color: #67c23a; background: #f0f9eb; padding: 2px 6px; border-radius: 4px; }
+
+/* ★★★ [輸入中提示] 正在輸入狀態的顏色 ★★★ */
+.header-status.typing { color: #409eff; background: #ecf5ff; }
 
 /* 氣泡 */
 .bubble {
@@ -374,8 +408,8 @@ watch(() => chatStore.messages.length, async () => {
 }
 
 .message-mine .bubble {
-  background-color: #95ec69; /* 綠底 */
-  color: #000000; /* 黑字 */
+  background-color: #95ec69; 
+  color: #000000; 
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
@@ -391,15 +425,13 @@ watch(() => chatStore.messages.length, async () => {
 }
 .empty-icon { color: #c0c4cc; }
 
-/* ★★★ Avatar Light Mode 修改 ★★★ */
-/* 綠底黑字 + 淺色邊框 */
 .contact-avatar, .msg-avatar {
   margin-right: 12px;
   flex-shrink: 0;
-  background-color: #b2ed95 !important; /* 強制綠色 */
-  color: #000000 !important; /* 強制黑色 */
+  background-color: #b2ed95 !important; 
+  color: #000000 !important; 
   font-weight: bold;
-  border: 1px solid rgba(0, 0, 0, 0.1); /* 淺黑邊框 */
+  border: 1px solid rgba(0, 0, 0, 0.1); 
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.3s;
 }
@@ -438,26 +470,23 @@ html.dark {
 
   .message-area, .empty-state { background-color: #000000; }
 
-  /* 字體 */
   .contact-name, .header-name { color: #e5eaf3; }
   .contact-preview, .contact-time, .sender-name, .no-message-tip, .empty-state p { color: #a3a6ad; }
  .header-status { font-size: 12px; color: #67c23a; background: #f0f9eb; padding: 2px 6px; border-radius: 4px; }
+ .header-status.typing { color: #409eff; background: #18222c; } /* Dark Mode Typing */
 
-  /* 氣泡 */
   .bubble {
     background-color: #2b2b2b;
     color: #e5eaf3;
     border: 1px solid #4c4d4f;
   }
   .message-mine .bubble {
-    background-color: #337ecc; /* Dark Mode 維持藍色比較好看 */
+    background-color: #337ecc; 
     color: #ffffff;
     border: none;
   }
   .empty-icon { color: #4c4d4f; }
 
-  /* ★★★ Avatar Dark Mode 覆蓋 ★★★ */
-  /* 回到藍底白字 + 灰色邊框 */
   .contact-avatar, .msg-avatar {
     background-color: #409eff !important; 
     color: #fff !important; 
@@ -469,13 +498,11 @@ html.dark {
     border-color: #66b1ff;
   }
   
-  /* Dark Mode Badge 邊框 */
   .avatar-badge :deep(.el-badge__content) {
     border-color: #1d1e1f;
   }
 }
 
-/* 通用設定 */
 .contact-list { flex: 1; overflow: hidden; }
 .contact-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .message-list { padding: 0 24px; }
@@ -486,7 +513,6 @@ html.dark {
 .message-content-wrapper { display: flex; flex-direction: column; max-width: 70%; }
 .input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 
-/* Badge 通用設定 (Light Mode 預設) */
 .avatar-badge {
   display: flex;
   align-items: center;
@@ -497,7 +523,6 @@ html.dark {
     top: 5px;
     z-index: 10;
     
-    /* Light Mode: 白色邊框 + 陰影 */
     border: 2px solid #fff; 
     box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
     
