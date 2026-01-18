@@ -29,11 +29,12 @@ export const useChatStore = defineStore('chat', () => {
   const typingTimeouts = new Map<string, any>()
 
   // ★★★ [WebRTC] 新增狀態變數 (Phase 1) ★★★
-  // 使用 any 避免 TypeScript 對 RTCPeerConnection 的嚴格檢查報錯 (Legacy Mode)
   const peerConnection = ref<any>(null) 
   const localStream = ref<MediaStream | null>(null)
   const remoteStream = ref<MediaStream | null>(null)
-  const currentCallTarget = ref<string>('') // 紀錄當前通話對象
+  const currentCallTarget = ref<string>('') 
+  // ★★★ [WebRTC Fix] 新增 ICE Candidate 緩存佇列 ★★★
+  const candidateQueue = ref<RTCIceCandidateInit[]>([])
 
   const fetchHistory = async () => {
     try {
@@ -61,7 +62,6 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const res = await chatApi.getPrivateHistory(contactName)
       if (res.data) {
-        // 後端 Entity 更新後，這裡會自動帶入 read 狀態
         messages.value = res.data as unknown as ChatMessage[]
       }
     } catch (e) {
@@ -142,7 +142,6 @@ export const useChatStore = defineStore('chat', () => {
         client.subscribe('/user/queue/messages', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           
-          // ★★★ [即時已讀回執] 收到已讀訊號：更新本地訊息狀態 ★★★
           if (body.type === 'READ') {
             const reader = body.sender
             const myUsername = sessionStorage.getItem('username')
@@ -196,7 +195,6 @@ export const useChatStore = defineStore('chat', () => {
         isConnected.value = false
         onlineUsers.value.clear() 
         typingUsers.value.clear()
-        // [WebRTC] 斷線時也關閉通話
         closeCall()
       }
     })
@@ -208,14 +206,15 @@ export const useChatStore = defineStore('chat', () => {
   // ★★★ [WebRTC] 初始化 RTCPeerConnection ★★★
   const initWebRTC = async () => {
     console.log('[WebRTC] 初始化 PeerConnection')
+    candidateQueue.value = [] // 初始化時清空佇列
+    
     const config = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' } // Google 免費 STUN
+        { urls: 'stun:stun.l.google.com:19302' } 
       ]
     }
     peerConnection.value = new RTCPeerConnection(config)
 
-    // 監聽 ICE Candidate
     peerConnection.value.onicecandidate = (event: any) => {
       if (event.candidate) {
         sendSignal({
@@ -226,13 +225,11 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
-    // 監聽遠端流
     peerConnection.value.ontrack = (event: any) => {
       console.log('[WebRTC] 收到遠端影像流')
       remoteStream.value = event.streams[0]
     }
 
-    // 獲取本地媒體流
     try {
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       localStream.value.getTracks().forEach((track) => {
@@ -244,7 +241,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [WebRTC] 發送信令封包 (透過 WebSocket) ★★★
   const sendSignal = (signalMsg: Partial<ChatMessage>) => {
     if (stompClient.value && isConnected.value) {
       const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
@@ -253,18 +249,16 @@ export const useChatStore = defineStore('chat', () => {
         ...signalMsg
       }
       stompClient.value.publish({
-        destination: '/app/chat.signal', // 對應 ChatController
+        destination: '/app/chat.signal', 
         body: JSON.stringify(msg)
       })
     }
   }
 
-  // ★★★ [WebRTC] 發起通話 (Call) ★★★
   const callUser = async (targetUser: string) => {
     currentCallTarget.value = targetUser
     await initWebRTC()
     
-    // 建立 Offer
     const offer = await peerConnection.value.createOffer()
     await peerConnection.value.setLocalDescription(offer)
     
@@ -276,18 +270,37 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
+  // ★★★ [WebRTC Fix] 處理緩存的 ICE Candidates ★★★
+  const processCandidateQueue = async () => {
+    if (!peerConnection.value || !peerConnection.value.remoteDescription) return
+    
+    while (candidateQueue.value.length > 0) {
+      const candidate = candidateQueue.value.shift()
+      if (candidate) {
+        try {
+          await peerConnection.value.addIceCandidate(new RTCIceCandidate(candidate))
+          console.log('[WebRTC] 成功加入緩存的 ICE Candidate')
+        } catch (e) {
+          console.error('[WebRTC] 加入緩存 ICE Candidate 失敗', e)
+        }
+      }
+    }
+  }
+
   // ★★★ [WebRTC] 處理接收到的信令 ★★★
   const handleWebRTCSignal = async (msg: ChatMessage) => {
     const signalData = msg.data ? JSON.parse(msg.data) : null
 
-    // 如果收到 OFFER 且沒有連線，代表是來電 -> 初始化並接聽
     if (msg.type === 'OFFER') {
         if (!peerConnection.value) {
-            currentCallTarget.value = msg.sender // 記錄對方是誰
+            currentCallTarget.value = msg.sender
             await initWebRTC()
         }
         
         await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
+        // 設定完 Remote Description 後，立刻處理累積的 Candidates
+        await processCandidateQueue() 
+        
         const answer = await peerConnection.value.createAnswer()
         await peerConnection.value.setLocalDescription(answer)
         
@@ -301,11 +314,24 @@ export const useChatStore = defineStore('chat', () => {
     else if (msg.type === 'ANSWER') {
         if (peerConnection.value) {
             await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
+            // 設定完 Remote Description 後，立刻處理累積的 Candidates
+            await processCandidateQueue()
         }
     }
     else if (msg.type === 'CANDIDATE') {
-        if (peerConnection.value && signalData) {
-            await peerConnection.value.addIceCandidate(new RTCIceCandidate(signalData))
+        if (signalData) {
+            // ★★★ [WebRTC Fix] 判斷是否準備好接收 Candidate ★★★
+            if (peerConnection.value && peerConnection.value.remoteDescription) {
+                try {
+                    await peerConnection.value.addIceCandidate(new RTCIceCandidate(signalData))
+                } catch (e) {
+                    console.error('[WebRTC] AddIceCandidate Error', e)
+                }
+            } else {
+                // 如果還沒準備好，先存起來
+                console.log('[WebRTC] RemoteDescription 未就緒，緩存 Candidate')
+                candidateQueue.value.push(signalData)
+            }
         }
     }
     else if (msg.type === 'HANGUP') {
@@ -314,10 +340,8 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [WebRTC] 掛斷/結束通話 ★★★
   const closeCall = () => {
     if (peerConnection.value) {
-        // 通知對方掛斷
         if (currentCallTarget.value) {
             sendSignal({
                 type: 'HANGUP',
@@ -335,6 +359,7 @@ export const useChatStore = defineStore('chat', () => {
     
     remoteStream.value = null
     currentCallTarget.value = ''
+    candidateQueue.value = [] // 清空緩存
   }
 
   const handleTypingSignal = (sender: string) => {
@@ -374,7 +399,6 @@ export const useChatStore = defineStore('chat', () => {
       isConnected.value = false
       onlineUsers.value.clear() 
       typingUsers.value.clear()
-      // [WebRTC]
       closeCall()
     }
   }
@@ -388,7 +412,6 @@ export const useChatStore = defineStore('chat', () => {
         receiver: receiver || undefined,
         content: content,
         type: 'CHAT',
-        // ★★★ [即時已讀回執] 發送時預設為未讀 ★★★
         read: false 
       }
 
@@ -421,12 +444,10 @@ export const useChatStore = defineStore('chat', () => {
     unreadMap,
     onlineUsers,
     typingUsers,
-    // ★★★ [WebRTC] 匯出變數供 UI 使用 ★★★
     localStream,
     remoteStream,
-    callUser, // 用於撥打
-    closeCall, // 用於掛斷
-    // --- End WebRTC ---
+    callUser, 
+    closeCall, 
     connect,
     disconnect,
     sendMessage,
