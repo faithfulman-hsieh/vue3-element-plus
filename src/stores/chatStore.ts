@@ -28,6 +28,13 @@ export const useChatStore = defineStore('chat', () => {
   const typingUsers = ref<Set<string>>(new Set())
   const typingTimeouts = new Map<string, any>()
 
+  // ★★★ [WebRTC] 新增狀態變數 (Phase 1) ★★★
+  // 使用 any 避免 TypeScript 對 RTCPeerConnection 的嚴格檢查報錯 (Legacy Mode)
+  const peerConnection = ref<any>(null) 
+  const localStream = ref<MediaStream | null>(null)
+  const remoteStream = ref<MediaStream | null>(null)
+  const currentCallTarget = ref<string>('') // 紀錄當前通話對象
+
   const fetchHistory = async () => {
     try {
       const response = await chatApi.getPublicHistory()
@@ -54,6 +61,7 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const res = await chatApi.getPrivateHistory(contactName)
       if (res.data) {
+        // 後端 Entity 更新後，這裡會自動帶入 read 狀態
         messages.value = res.data as unknown as ChatMessage[]
       }
     } catch (e) {
@@ -160,6 +168,13 @@ export const useChatStore = defineStore('chat', () => {
           }
         })
 
+        // ★★★ [WebRTC] 訂閱 WebRTC 信令頻道 ★★★
+        client.subscribe('/user/queue/signal', (message: Message) => {
+          const body: ChatMessage = JSON.parse(message.body)
+          console.log('[WebRTC] 收到信令:', body.type)
+          handleWebRTCSignal(body)
+        })
+
         client.subscribe('/user/queue/notifications', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           handleNotification(body)
@@ -181,11 +196,145 @@ export const useChatStore = defineStore('chat', () => {
         isConnected.value = false
         onlineUsers.value.clear() 
         typingUsers.value.clear()
+        // [WebRTC] 斷線時也關閉通話
+        closeCall()
       }
     })
 
     stompClient.value = client
     client.activate()
+  }
+
+  // ★★★ [WebRTC] 初始化 RTCPeerConnection ★★★
+  const initWebRTC = async () => {
+    console.log('[WebRTC] 初始化 PeerConnection')
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' } // Google 免費 STUN
+      ]
+    }
+    peerConnection.value = new RTCPeerConnection(config)
+
+    // 監聽 ICE Candidate
+    peerConnection.value.onicecandidate = (event: any) => {
+      if (event.candidate) {
+        sendSignal({
+          type: 'CANDIDATE',
+          receiver: currentCallTarget.value,
+          data: JSON.stringify(event.candidate)
+        })
+      }
+    }
+
+    // 監聽遠端流
+    peerConnection.value.ontrack = (event: any) => {
+      console.log('[WebRTC] 收到遠端影像流')
+      remoteStream.value = event.streams[0]
+    }
+
+    // 獲取本地媒體流
+    try {
+      localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      localStream.value.getTracks().forEach((track) => {
+        peerConnection.value.addTrack(track, localStream.value)
+      })
+    } catch (e) {
+      console.error('[WebRTC] 無法存取攝影機/麥克風', e)
+      ElNotification.error('無法存取攝影機或麥克風')
+    }
+  }
+
+  // ★★★ [WebRTC] 發送信令封包 (透過 WebSocket) ★★★
+  const sendSignal = (signalMsg: Partial<ChatMessage>) => {
+    if (stompClient.value && isConnected.value) {
+      const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
+      const msg = {
+        sender: currentUsername,
+        ...signalMsg
+      }
+      stompClient.value.publish({
+        destination: '/app/chat.signal', // 對應 ChatController
+        body: JSON.stringify(msg)
+      })
+    }
+  }
+
+  // ★★★ [WebRTC] 發起通話 (Call) ★★★
+  const callUser = async (targetUser: string) => {
+    currentCallTarget.value = targetUser
+    await initWebRTC()
+    
+    // 建立 Offer
+    const offer = await peerConnection.value.createOffer()
+    await peerConnection.value.setLocalDescription(offer)
+    
+    console.log('[WebRTC] 發送 OFFER 給', targetUser)
+    sendSignal({
+      type: 'OFFER',
+      receiver: targetUser,
+      data: JSON.stringify(offer)
+    })
+  }
+
+  // ★★★ [WebRTC] 處理接收到的信令 ★★★
+  const handleWebRTCSignal = async (msg: ChatMessage) => {
+    const signalData = msg.data ? JSON.parse(msg.data) : null
+
+    // 如果收到 OFFER 且沒有連線，代表是來電 -> 初始化並接聽
+    if (msg.type === 'OFFER') {
+        if (!peerConnection.value) {
+            currentCallTarget.value = msg.sender // 記錄對方是誰
+            await initWebRTC()
+        }
+        
+        await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
+        const answer = await peerConnection.value.createAnswer()
+        await peerConnection.value.setLocalDescription(answer)
+        
+        console.log('[WebRTC] 發送 ANSWER 回覆')
+        sendSignal({
+            type: 'ANSWER',
+            receiver: msg.sender,
+            data: JSON.stringify(answer)
+        })
+    }
+    else if (msg.type === 'ANSWER') {
+        if (peerConnection.value) {
+            await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
+        }
+    }
+    else if (msg.type === 'CANDIDATE') {
+        if (peerConnection.value && signalData) {
+            await peerConnection.value.addIceCandidate(new RTCIceCandidate(signalData))
+        }
+    }
+    else if (msg.type === 'HANGUP') {
+        closeCall()
+        ElNotification.info('通話已結束')
+    }
+  }
+
+  // ★★★ [WebRTC] 掛斷/結束通話 ★★★
+  const closeCall = () => {
+    if (peerConnection.value) {
+        // 通知對方掛斷
+        if (currentCallTarget.value) {
+            sendSignal({
+                type: 'HANGUP',
+                receiver: currentCallTarget.value
+            })
+        }
+        peerConnection.value.close()
+        peerConnection.value = null
+    }
+    
+    if (localStream.value) {
+        localStream.value.getTracks().forEach(track => track.stop())
+        localStream.value = null
+    }
+    
+    remoteStream.value = null
+    currentCallTarget.value = ''
   }
 
   const handleTypingSignal = (sender: string) => {
@@ -225,6 +374,8 @@ export const useChatStore = defineStore('chat', () => {
       isConnected.value = false
       onlineUsers.value.clear() 
       typingUsers.value.clear()
+      // [WebRTC]
+      closeCall()
     }
   }
 
@@ -237,7 +388,8 @@ export const useChatStore = defineStore('chat', () => {
         receiver: receiver || undefined,
         content: content,
         type: 'CHAT',
-        read: false // 預設未讀
+        // ★★★ [即時已讀回執] 發送時預設為未讀 ★★★
+        read: false 
       }
 
       const destination = receiver ? '/app/chat.sendPrivateMessage' : '/app/chat.sendMessage'
@@ -269,6 +421,12 @@ export const useChatStore = defineStore('chat', () => {
     unreadMap,
     onlineUsers,
     typingUsers,
+    // ★★★ [WebRTC] 匯出變數供 UI 使用 ★★★
+    localStream,
+    remoteStream,
+    callUser, // 用於撥打
+    closeCall, // 用於掛斷
+    // --- End WebRTC ---
     connect,
     disconnect,
     sendMessage,

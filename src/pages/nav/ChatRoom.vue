@@ -3,7 +3,8 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-import { Search, Promotion, UserFilled, MoreFilled, ArrowDown } from '@element-plus/icons-vue'; 
+// ★★★ [Mobile Fix] 補上 ArrowLeft 圖示 ★★★
+import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
 import type { ElScrollbar } from 'element-plus'; 
@@ -22,6 +23,10 @@ const scrollbarRef = ref<InstanceType<typeof ElScrollbar> | null>(null);
 const isAtBottom = ref(true); 
 const showScrollButton = ref(false); 
 const newMsgCount = ref(0); 
+
+// ★★★ [WebRTC UI] 視訊元素 Ref ★★★
+const localVideo = ref<HTMLVideoElement | null>(null);
+const remoteVideo = ref<HTMLVideoElement | null>(null);
 
 // ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
@@ -128,6 +133,11 @@ const handleTyping = () => {
   }
 };
 
+// ★★★ [Mobile Fix] 返回列表方法 ★★★
+const handleBackToList = () => {
+  activeChatUser.value = null;
+};
+
 // ★★★ [智慧捲動] 捲動事件監聽：判斷是否在底部 ★★★
 const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   const wrap = scrollbarRef.value?.wrapRef; 
@@ -158,6 +168,33 @@ const scrollToBottom = (force: boolean = false) => {
   });
 };
 
+// ★★★ [WebRTC UI] 監聽 MediaStream 並綁定到 Video 元素 ★★★
+watch(
+  () => chatStore.localStream,
+  (newStream) => {
+    nextTick(() => {
+      if (localVideo.value && newStream) {
+        console.log('[WebRTC UI] Setting local stream');
+        localVideo.value.srcObject = newStream;
+      }
+    });
+  },
+  { immediate: true }
+);
+
+watch(
+  () => chatStore.remoteStream,
+  (newStream) => {
+    nextTick(() => {
+      if (remoteVideo.value && newStream) {
+        console.log('[WebRTC UI] Setting remote stream');
+        remoteVideo.value.srcObject = newStream;
+      }
+    });
+  },
+  { immediate: true }
+);
+
 // ★★★ [智慧捲動] 智慧監聽訊息變化 ★★★
 watch(
   () => chatStore.messages.length, 
@@ -185,8 +222,9 @@ watch(
 </script>
 
 <template>
-  <div class="chat-container">
-    <div class="sidebar">
+  <div class="chat-container" :class="{ 'mobile-active-chat': !!activeChatUser }">
+    
+    <div class="sidebar" :class="{ 'mobile-hidden': !!activeChatUser }">
       <div class="search-bar">
         <el-input
           v-model="searchText"
@@ -245,10 +283,12 @@ watch(
       
       </div>
 
-    <div class="chat-window">
+    <div class="chat-window" :class="{ 'mobile-hidden': !activeChatUser }">
       <template v-if="activeChatUser">
         <div class="chat-header">
           <div class="header-info">
+            <el-icon class="back-btn mobile-only" @click="handleBackToList"><ArrowLeft /></el-icon>
+            
             <span class="header-name">{{ activeChatUser.name || activeChatUser.username }}</span>
             
             <span class="header-status typing" v-if="chatStore.typingUsers.has(activeChatUser.username || activeChatUser.name)">
@@ -261,6 +301,29 @@ watch(
               離線
             </span>
           </div>
+          
+          <div class="header-actions">
+             <el-button 
+                v-if="!chatStore.localStream && !chatStore.remoteStream"
+                type="primary" 
+                circle 
+                :icon="VideoCamera" 
+                title="發起視訊通話"
+                @click="chatStore.callUser(activeChatUser.username || activeChatUser.name)"
+             />
+          </div>
+        </div>
+
+        <div v-if="chatStore.localStream || chatStore.remoteStream" class="video-overlay">
+            <div class="video-container">
+                <video ref="remoteVideo" class="remote-video" autoplay playsinline></video>
+                
+                <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
+                
+                <div class="video-controls">
+                    <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.closeCall()" title="掛斷"></el-button>
+                </div>
+            </div>
         </div>
 
         <div class="message-area message-scroll-container">
@@ -341,7 +404,7 @@ watch(
         </div>
       </template>
 
-      <div v-else class="empty-state">
+      <div v-else class="empty-state" :class="{ 'mobile-hidden': !activeChatUser }">
         <el-icon :size="100" class="empty-icon"><UserFilled /></el-icon>
         <p>請從左側選擇一位聯絡人開始聊天</p>
       </div>
@@ -381,6 +444,16 @@ watch(
   padding-right: 16px;
   padding-bottom: 16px;
   box-sizing: border-box;
+  
+  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
+  @media (max-width: 768px) {
+    padding-right: 0;
+    padding-bottom: 0;
+    height: calc(100vh - 50px); /* 調整高度適應手機 */
+    display: block; /* 改為區塊顯示，非 Flex 並排 */
+    position: relative;
+    overflow: hidden;
+  }
 }
 
 /* 2. 側邊欄 */
@@ -390,6 +463,17 @@ watch(
   flex-direction: column;
   background-color: #f7f8fa; 
   border-right: 1px solid #e4e7ed; 
+  
+  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
+  @media (max-width: 768px) {
+    width: 100%;
+    height: 100%;
+    border-right: none;
+    
+    &.mobile-hidden {
+      display: none;
+    }
+  }
 }
 
 .search-bar {
@@ -418,6 +502,25 @@ watch(
   display: flex;
   flex-direction: column;
   background-color: #ffffff; 
+  position: relative; /* ★★★ [WebRTC UI] 讓 Overlay 相對定位 ★★★ */
+  
+  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
+  @media (max-width: 768px) {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    
+    &.mobile-hidden {
+      display: none;
+    }
+    
+    .empty-state {
+      display: none; /* 手機版不顯示 Empty State，直接顯示列表 */
+    }
+  }
 }
 
 /* Header & Input */
@@ -431,6 +534,23 @@ watch(
   justify-content: space-between;
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   z-index: 5;
+  
+  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
+  @media (max-width: 768px) {
+    padding: 0 12px;
+  }
+}
+
+.back-btn {
+  font-size: 20px;
+  margin-right: 10px;
+  cursor: pointer;
+  display: none;
+  
+  /* ★★★ [Mobile Fix] 只在手機版顯示 ★★★ */
+  @media (max-width: 768px) {
+    display: inline-flex;
+  }
 }
 
 .input-area {
@@ -448,7 +568,7 @@ watch(
   background-color: #f0f2f5; 
   padding: 20px 0;
   overflow: hidden;
-  position: relative; 
+  position: relative; /* ★★★ [智慧捲動] 為了絕對定位懸浮按鈕 ★★★ */
 }
 
 /* 字體與狀態 */
@@ -501,6 +621,16 @@ watch(
   transition: all 0.3s;
 }
 
+/* ★★★ [即時已讀回執] 新增已讀狀態樣式 ★★★ */
+.message-status {
+  text-align: right;
+  font-size: 11px;
+  margin-top: 2px;
+  margin-right: 2px;
+}
+.read-text { color: #67c23a; } /* 綠色已讀 */
+.unread-text { color: #909399; } /* 灰色送達 */
+
 /* ★★★ [智慧捲動] 懸浮按鈕樣式 ★★★ */
 .scroll-bottom-btn {
   position: absolute;
@@ -541,15 +671,68 @@ watch(
   }
 }
 
-/* ★★★ [即時已讀回執] 已讀狀態樣式 ★★★ */
-.message-status {
-  text-align: right;
-  font-size: 11px;
-  margin-top: 2px;
-  margin-right: 2px;
+/* ★★★ [WebRTC UI] 視訊通話樣式 ★★★ */
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
-.read-text { color: #67c23a; } /* 綠色已讀 */
-.unread-text { color: #909399; } /* 灰色送達 */
+
+.video-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 保持比例 */
+  background: #000;
+}
+
+.local-video {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 180px;
+  height: 135px; /* 4:3 比例 */
+  background: #333;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  object-fit: cover;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  
+  /* ★★★ [Mobile Fix] 手機版縮小一點本地視窗 ★★★ */
+  @media (max-width: 768px) {
+    width: 120px;
+    height: 90px;
+    bottom: 80px; /* 避開掛斷按鈕 */
+    right: 10px;
+  }
+}
+
+.video-controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  gap: 20px;
+}
 
 
 /* =========================================
@@ -617,12 +800,17 @@ html.dark {
     border-color: #1d1e1f;
   }
 
+  /* ★★★ [智慧捲動] Dark Mode 懸浮按鈕 ★★★ */
   .scroll-bottom-btn .btn-circle {
     background-color: #2b2b2b;
     color: #e5eaf3;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.5);
-    &:hover { background-color: #363637; }
+    
+    &:hover {
+      background-color: #363637;
+    }
   }
+
   .scroll-bottom-btn .new-msg-text {
     background: #2b2b2b;
     color: #66b1ff;
