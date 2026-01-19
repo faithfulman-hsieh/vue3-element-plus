@@ -3,8 +3,8 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-// ★★★ [Mobile Fix] 補上 ArrowLeft 圖示 ★★★
-import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft } from '@element-plus/icons-vue'; 
+// ★★★ [WebRTC UI] 引入 PhoneFilled Icon (接聽用) ★★★
+import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft, PhoneFilled } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
 import type { ElScrollbar } from 'element-plus'; 
@@ -27,6 +27,11 @@ const newMsgCount = ref(0);
 // ★★★ [WebRTC UI] 視訊元素 Ref ★★★
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
+
+// ★★★ [WebRTC Phase 3] 鈴聲物件 ★★★
+// 使用一個簡單的線上鈴聲或是專案內的 assets
+const ringtoneAudio = new Audio('https://media.twiliocdn.com/sdk/js/client/sounds/releases/1.0.0/incoming.mp3'); 
+ringtoneAudio.loop = true;
 
 // ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
@@ -63,6 +68,7 @@ onMounted(async () => {
 onUnmounted(() => {
   console.log('[ChatRoom] 元件卸載，斷開連線')
   chatStore.disconnect()
+  ringtoneAudio.pause() // 停止鈴聲
 })
 
 // --- 計算屬性 ---
@@ -195,6 +201,21 @@ watch(
   { immediate: true }
 );
 
+// ★★★ [WebRTC Phase 3] 監聽來電狀態，控制鈴聲 ★★★
+watch(
+  () => chatStore.incomingCall,
+  (val) => {
+    if (val) {
+        // 有來電 -> 播放鈴聲
+        ringtoneAudio.currentTime = 0;
+        ringtoneAudio.play().catch(e => console.error('無法播放鈴聲', e));
+    } else {
+        // 來電結束/接聽/拒絕 -> 停止鈴聲
+        ringtoneAudio.pause();
+    }
+  }
+);
+
 // ★★★ [智慧捲動] 智慧監聽訊息變化 ★★★
 watch(
   () => chatStore.messages.length, 
@@ -317,11 +338,23 @@ watch(
         <div v-if="chatStore.localStream || chatStore.remoteStream" class="video-overlay">
             <div class="video-container">
                 <video ref="remoteVideo" class="remote-video" autoplay playsinline></video>
-                
                 <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
-                
                 <div class="video-controls">
                     <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.closeCall()" title="掛斷"></el-button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="chatStore.incomingCall" class="incoming-call-modal">
+            <div class="modal-content">
+                <el-avatar :size="80" style="background-color: var(--el-color-primary); margin-bottom: 16px;">
+                    {{ chatStore.incomingCall.sender.charAt(0).toUpperCase() }}
+                </el-avatar>
+                <h3>{{ chatStore.incomingCall.sender }}</h3>
+                <p>邀請您進行視訊通話...</p>
+                <div class="call-actions">
+                    <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.rejectCall()"></el-button>
+                    <el-button type="success" circle size="large" :icon="PhoneFilled" @click="chatStore.acceptCall()" class="accept-btn"></el-button>
                 </div>
             </div>
         </div>
@@ -445,12 +478,11 @@ watch(
   padding-bottom: 16px;
   box-sizing: border-box;
   
-  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
   @media (max-width: 768px) {
     padding-right: 0;
     padding-bottom: 0;
-    height: calc(100vh - 50px); /* 調整高度適應手機 */
-    display: block; /* 改為區塊顯示，非 Flex 並排 */
+    height: calc(100vh - 50px); 
+    display: block; 
     position: relative;
     overflow: hidden;
   }
@@ -464,7 +496,6 @@ watch(
   background-color: #f7f8fa; 
   border-right: 1px solid #e4e7ed; 
   
-  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
   @media (max-width: 768px) {
     width: 100%;
     height: 100%;
@@ -502,9 +533,8 @@ watch(
   display: flex;
   flex-direction: column;
   background-color: #ffffff; 
-  position: relative; /* ★★★ [WebRTC UI] 讓 Overlay 相對定位 ★★★ */
+  position: relative; 
   
-  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
   @media (max-width: 768px) {
     width: 100%;
     height: 100%;
@@ -518,7 +548,7 @@ watch(
     }
     
     .empty-state {
-      display: none; /* 手機版不顯示 Empty State，直接顯示列表 */
+      display: none; 
     }
   }
 }
@@ -535,7 +565,6 @@ watch(
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   z-index: 5;
   
-  /* ★★★ [Mobile Fix] 手機版樣式 ★★★ */
   @media (max-width: 768px) {
     padding: 0 12px;
   }
@@ -547,7 +576,6 @@ watch(
   cursor: pointer;
   display: none;
   
-  /* ★★★ [Mobile Fix] 只在手機版顯示 ★★★ */
   @media (max-width: 768px) {
     display: inline-flex;
   }
@@ -568,7 +596,7 @@ watch(
   background-color: #f0f2f5; 
   padding: 20px 0;
   overflow: hidden;
-  position: relative; /* ★★★ [智慧捲動] 為了絕對定位懸浮按鈕 ★★★ */
+  position: relative; 
 }
 
 /* 字體與狀態 */
@@ -715,11 +743,10 @@ watch(
   z-index: 1000;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
   
-  /* ★★★ [Mobile Fix] 手機版縮小一點本地視窗 ★★★ */
   @media (max-width: 768px) {
     width: 120px;
     height: 90px;
-    bottom: 80px; /* 避開掛斷按鈕 */
+    bottom: 80px; 
     right: 10px;
   }
 }
@@ -732,6 +759,56 @@ watch(
   z-index: 1001;
   display: flex;
   gap: 20px;
+}
+
+/* ★★★ [WebRTC Phase 3] 來電彈窗樣式 ★★★ */
+.incoming-call-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 2000; /* 比 Video Overlay 高 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: #fff;
+  padding: 30px 50px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  h3 { margin: 0 0 10px; font-size: 20px; color: #333; }
+  p { margin: 0 0 24px; color: #666; }
+}
+
+.call-actions {
+  display: flex;
+  gap: 40px;
+}
+
+.accept-btn {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.7); }
+  70% { box-shadow: 0 0 0 15px rgba(103, 194, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(103, 194, 58, 0); }
 }
 
 
@@ -800,20 +877,22 @@ html.dark {
     border-color: #1d1e1f;
   }
 
-  /* ★★★ [智慧捲動] Dark Mode 懸浮按鈕 ★★★ */
   .scroll-bottom-btn .btn-circle {
     background-color: #2b2b2b;
     color: #e5eaf3;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.5);
-    
-    &:hover {
-      background-color: #363637;
-    }
+    &:hover { background-color: #363637; }
   }
-
   .scroll-bottom-btn .new-msg-text {
     background: #2b2b2b;
     color: #66b1ff;
+  }
+  
+  /* [WebRTC UI] Dark Mode Modal */
+  .modal-content {
+    background: #1d1e1f;
+    h3 { color: #e5eaf3; }
+    p { color: #a3a6ad; }
   }
 }
 

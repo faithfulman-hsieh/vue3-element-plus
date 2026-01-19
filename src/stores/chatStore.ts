@@ -9,7 +9,8 @@ interface ChatMessage {
   sender: string
   content: string
   // ★★★ [即時已讀回執] 增加 READ 類型 ★★★
-  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ'
+  // ★★★ [WebRTC Phase 3] 補上 REJECT 類型 ★★★
+  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ' | 'REJECT'
   time?: string
   receiver?: string
   data?: string
@@ -35,6 +36,10 @@ export const useChatStore = defineStore('chat', () => {
   const currentCallTarget = ref<string>('') 
   // ★★★ [WebRTC Fix] 新增 ICE Candidate 緩存佇列 ★★★
   const candidateQueue = ref<RTCIceCandidateInit[]>([])
+
+  // ★★★ [WebRTC Phase 3] 來電資訊狀態 ★★★
+  // 當有人打來時，暫存對方的資料 (sender, offer SDP)
+  const incomingCall = ref<{ sender: string, offerData: any } | null>(null)
 
   const fetchHistory = async () => {
     try {
@@ -287,29 +292,72 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // ★★★ [WebRTC Phase 3] 接聽電話 (使用者點擊接聽後觸發) ★★★
+  const acceptCall = async () => {
+    if (!incomingCall.value) return
+    
+    const { sender, offerData } = incomingCall.value
+    currentCallTarget.value = sender // 設定通話對象
+    
+    // 1. 初始化 WebRTC
+    await initWebRTC()
+    
+    // 2. 設定 Remote Desc
+    await peerConnection.value.setRemoteDescription(new RTCSessionDescription(offerData))
+    
+    // 3. 處理累積的 Candidates (Fix)
+    await processCandidateQueue()
+    
+    // 4. 建立 Answer 並傳送
+    const answer = await peerConnection.value.createAnswer()
+    await peerConnection.value.setLocalDescription(answer)
+    
+    console.log('[WebRTC] 同意接聽，發送 ANSWER')
+    sendSignal({
+        type: 'ANSWER',
+        receiver: sender,
+        data: JSON.stringify(answer)
+    })
+    
+    // 清空來電狀態
+    incomingCall.value = null
+  }
+
+  // ★★★ [WebRTC Phase 3] 拒絕接聽 ★★★
+  const rejectCall = () => {
+    if (!incomingCall.value) return
+    
+    const { sender } = incomingCall.value
+    console.log('[WebRTC] 拒絕接聽')
+    
+    // 發送 HANGUP 或 REJECT 訊號通知對方
+    sendSignal({
+        type: 'HANGUP', // 或者用 REJECT
+        receiver: sender
+    })
+    
+    incomingCall.value = null
+  }
+
   // ★★★ [WebRTC] 處理接收到的信令 ★★★
   const handleWebRTCSignal = async (msg: ChatMessage) => {
     const signalData = msg.data ? JSON.parse(msg.data) : null
 
     if (msg.type === 'OFFER') {
-        if (!peerConnection.value) {
-            currentCallTarget.value = msg.sender
-            await initWebRTC()
+        // ★★★ [WebRTC Phase 3] 收到來電，不自動接聽，改為顯示通知 ★★★
+        console.log('[WebRTC] 收到來電 OFFER，等待使用者接聽...')
+        
+        // 如果已經在通話中，可能要回覆 Busy
+        if (peerConnection.value) {
+            console.warn('[WebRTC] 通話中收到新來電，暫時忽略')
+            return
         }
-        
-        await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
-        // 設定完 Remote Description 後，立刻處理累積的 Candidates
-        await processCandidateQueue() 
-        
-        const answer = await peerConnection.value.createAnswer()
-        await peerConnection.value.setLocalDescription(answer)
-        
-        console.log('[WebRTC] 發送 ANSWER 回覆')
-        sendSignal({
-            type: 'ANSWER',
-            receiver: msg.sender,
-            data: JSON.stringify(answer)
-        })
+
+        // 設定來電狀態，讓 UI 顯示彈窗
+        incomingCall.value = {
+            sender: msg.sender,
+            offerData: signalData
+        }
     }
     else if (msg.type === 'ANSWER') {
         if (peerConnection.value) {
@@ -320,7 +368,6 @@ export const useChatStore = defineStore('chat', () => {
     }
     else if (msg.type === 'CANDIDATE') {
         if (signalData) {
-            // ★★★ [WebRTC Fix] 判斷是否準備好接收 Candidate ★★★
             if (peerConnection.value && peerConnection.value.remoteDescription) {
                 try {
                     await peerConnection.value.addIceCandidate(new RTCIceCandidate(signalData))
@@ -328,15 +375,14 @@ export const useChatStore = defineStore('chat', () => {
                     console.error('[WebRTC] AddIceCandidate Error', e)
                 }
             } else {
-                // 如果還沒準備好，先存起來
                 console.log('[WebRTC] RemoteDescription 未就緒，緩存 Candidate')
                 candidateQueue.value.push(signalData)
             }
         }
     }
-    else if (msg.type === 'HANGUP') {
+    else if (msg.type === 'HANGUP' || msg.type === 'REJECT') {
         closeCall()
-        ElNotification.info('通話已結束')
+        ElNotification.info('通話已結束或被拒絕')
     }
   }
 
@@ -360,6 +406,7 @@ export const useChatStore = defineStore('chat', () => {
     remoteStream.value = null
     currentCallTarget.value = ''
     candidateQueue.value = [] // 清空緩存
+    incomingCall.value = null // 清空來電
   }
 
   const handleTypingSignal = (sender: string) => {
@@ -446,6 +493,11 @@ export const useChatStore = defineStore('chat', () => {
     typingUsers,
     localStream,
     remoteStream,
+    // ★★★ [WebRTC Phase 3] 匯出新狀態與方法 ★★★
+    incomingCall,
+    acceptCall,
+    rejectCall,
+    // ---
     callUser, 
     closeCall, 
     connect,
