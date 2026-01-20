@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, provide, nextTick, onUnmounted } from 'vue'; // ★★★ [Global Call] 加入 nextTick, onUnmounted ★★★
+import { ref, watch, provide, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import BaseHeader from './components/layouts/BaseHeader.vue';
 import BaseSide from './components/layouts/BaseSide.vue';
@@ -39,21 +39,43 @@ watch(
   }
 );
 
-// ★★★ [Global Call] 監聽來電狀態，控制鈴聲 ★★★
+// ★★★ [Notification] 請求通知權限 ★★★
+onMounted(() => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+});
+
+// ★★★ [Global Call] 監聽來電狀態，控制鈴聲與原生通知 ★★★
 watch(
   () => chatStore.incomingCall,
   (val) => {
     if (val) {
+        // 1. 播放鈴聲
         ringtoneAudio.currentTime = 0;
         ringtoneAudio.play().catch(e => console.error('無法播放鈴聲', e));
+
+        // 2. 發送瀏覽器原生通知 (背景時顯示)
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            const notification = new Notification('來電通知', {
+                body: `${val.sender} 正在邀請您進行視訊通話...`,
+                icon: '/favicon.ico', // 或您的 Logo 路徑
+                tag: 'incoming-call'
+            });
+
+            notification.onclick = () => {
+                window.focus(); // 點擊通知將視窗帶回前景
+                notification.close();
+            };
+        }
     } else {
+        // 停止鈴聲
         ringtoneAudio.pause();
     }
   }
 );
 
 // ★★★ [Global Call] 監聽影像流並綁定 Video 元素 ★★★
-// 這樣無論在哪個頁面，只要開始通話，畫面就會出現
 watch(
   () => chatStore.localStream,
   (newStream) => {
@@ -160,7 +182,10 @@ onUnmounted(() => {
   height: 100%;
   overflow-y: auto; 
   border-right: 1px solid var(--ep-border-color);
+  
+  /* ★★★ [Dark Mode Fix] 使用變數，支援深色模式 ★★★ */
   background-color: var(--ep-bg-color); 
+  
   transition: transform 0.3s ease; 
   z-index: 2000; 
 }
@@ -209,7 +234,7 @@ onUnmounted(() => {
 
 /* 視訊通話 Overlay */
 .global-video-overlay {
-  position: fixed; /* 改為 fixed 確保全螢幕 */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
@@ -257,7 +282,7 @@ onUnmounted(() => {
   .local-video {
     width: 120px;
     height: 90px;
-    bottom: 100px; /* 避開掛斷按鈕 */
+    bottom: 100px;
     right: 10px;
   }
 }
@@ -274,13 +299,13 @@ onUnmounted(() => {
 
 /* 來電通知彈窗 */
 .global-incoming-modal {
-  position: fixed; /* 改為 fixed */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.8);
-  z-index: 9998; /* 略低於 Video Overlay */
+  z-index: 9998;
   display: flex;
   justify-content: center;
   align-items: center;
