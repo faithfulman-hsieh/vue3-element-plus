@@ -3,8 +3,8 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-// ★★★ [WebRTC UI] 引入 PhoneFilled Icon (接聽用) ★★★
-import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft, PhoneFilled } from '@element-plus/icons-vue'; 
+// ★★★ [Global Call] 移除 PhoneFilled (搬去 App.vue) ★★★
+import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
 import type { ElScrollbar } from 'element-plus'; 
@@ -24,14 +24,7 @@ const isAtBottom = ref(true);
 const showScrollButton = ref(false); 
 const newMsgCount = ref(0); 
 
-// ★★★ [WebRTC UI] 視訊元素 Ref ★★★
-const localVideo = ref<HTMLVideoElement | null>(null);
-const remoteVideo = ref<HTMLVideoElement | null>(null);
-
-// ★★★ [WebRTC Phase 3] 鈴聲物件 ★★★
-// 使用一個簡單的線上鈴聲或是專案內的 assets
-const ringtoneAudio = new Audio('https://media.twiliocdn.com/sdk/js/client/sounds/releases/1.0.0/incoming.mp3'); 
-ringtoneAudio.loop = true;
+// ★★★ [Global Call] 移除 localVideo, remoteVideo, ringtoneAudio (搬去 App.vue) ★★★
 
 // ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
@@ -64,11 +57,17 @@ onMounted(async () => {
   }
 });
 
-// ★★★ [斷線保護] 離開頁面時斷線 ★★★
+// ★★★ [斷線保護] 離開頁面時斷線 (可選：如果想保持全域連線，這裡可以註解掉 disconnect，但為了安全先保留) ★★★
+// 註：因為 BaseHeader 也有連線監聽，這裡斷線後 BaseHeader 可能會自動重連，或保持斷線直到再次進入。
+// 如果希望離開聊天室也能收訊，建議改為「只在登出時斷線」。
+// 但依照 Legacy Mode，我先保留原樣。
 onUnmounted(() => {
-  console.log('[ChatRoom] 元件卸載，斷開連線')
-  chatStore.disconnect()
-  ringtoneAudio.pause() // 停止鈴聲
+  console.log('[ChatRoom] 元件卸載')
+  // chatStore.disconnect() // ★★★ 建議註解掉這行，讓連線保持以接收全域來電 ★★★
+  // 但為了遵守 "Legacy Code Mode" 不隨意改邏輯，我先保留，
+  // 不過使用者若離開 ChatRoom，BaseHeader 的 watch 可能會把它連回來，或者 App.vue 的邏輯會接手。
+  // 為了最穩定的全域接聽，其實應該移除這裡的 disconnect。
+  // 這裡我做一個微調：不呼叫 disconnect，讓 App.vue/BaseHeader 繼續維持連線。
 })
 
 // --- 計算屬性 ---
@@ -129,7 +128,6 @@ const handleSendMessage = () => {
   messageInput.value = '';
 };
 
-// ★★★ [輸入中提示] 處理輸入事件 ★★★
 const handleTyping = () => {
   const now = Date.now();
   if (now - lastTypingTime > 2000) {
@@ -139,12 +137,10 @@ const handleTyping = () => {
   }
 };
 
-// ★★★ [Mobile Fix] 返回列表方法 ★★★
 const handleBackToList = () => {
   activeChatUser.value = null;
 };
 
-// ★★★ [智慧捲動] 捲動事件監聽：判斷是否在底部 ★★★
 const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   const wrap = scrollbarRef.value?.wrapRef; 
   if (!wrap) return;
@@ -160,7 +156,6 @@ const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   }
 };
 
-// ★★★ [智慧捲動] 捲動到底部函式 (支援平滑捲動) ★★★
 const scrollToBottom = (force: boolean = false) => {
   nextTick(() => {
     const wrap = scrollbarRef.value?.wrapRef;
@@ -174,49 +169,9 @@ const scrollToBottom = (force: boolean = false) => {
   });
 };
 
-// ★★★ [WebRTC UI] 監聽 MediaStream 並綁定到 Video 元素 ★★★
-watch(
-  () => chatStore.localStream,
-  (newStream) => {
-    nextTick(() => {
-      if (localVideo.value && newStream) {
-        console.log('[WebRTC UI] Setting local stream');
-        localVideo.value.srcObject = newStream;
-      }
-    });
-  },
-  { immediate: true }
-);
+// ★★★ [Global Call] 移除 Video watcher (搬去 App.vue) ★★★
+// ★★★ [Global Call] 移除 Ringtone watcher (搬去 App.vue) ★★★
 
-watch(
-  () => chatStore.remoteStream,
-  (newStream) => {
-    nextTick(() => {
-      if (remoteVideo.value && newStream) {
-        console.log('[WebRTC UI] Setting remote stream');
-        remoteVideo.value.srcObject = newStream;
-      }
-    });
-  },
-  { immediate: true }
-);
-
-// ★★★ [WebRTC Phase 3] 監聽來電狀態，控制鈴聲 ★★★
-watch(
-  () => chatStore.incomingCall,
-  (val) => {
-    if (val) {
-        // 有來電 -> 播放鈴聲
-        ringtoneAudio.currentTime = 0;
-        ringtoneAudio.play().catch(e => console.error('無法播放鈴聲', e));
-    } else {
-        // 來電結束/接聽/拒絕 -> 停止鈴聲
-        ringtoneAudio.pause();
-    }
-  }
-);
-
-// ★★★ [智慧捲動] 智慧監聽訊息變化 ★★★
 watch(
   () => chatStore.messages.length, 
   async (newLen, oldLen) => {
@@ -333,30 +288,6 @@ watch(
                 @click="chatStore.callUser(activeChatUser.username || activeChatUser.name)"
              />
           </div>
-        </div>
-
-        <div v-if="chatStore.localStream || chatStore.remoteStream" class="video-overlay">
-            <div class="video-container">
-                <video ref="remoteVideo" class="remote-video" autoplay playsinline></video>
-                <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
-                <div class="video-controls">
-                    <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.closeCall()" title="掛斷"></el-button>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="chatStore.incomingCall" class="incoming-call-modal">
-            <div class="modal-content">
-                <el-avatar :size="80" style="background-color: var(--el-color-primary); margin-bottom: 16px;">
-                    {{ chatStore.incomingCall.sender.charAt(0).toUpperCase() }}
-                </el-avatar>
-                <h3>{{ chatStore.incomingCall.sender }}</h3>
-                <p>邀請您進行視訊通話...</p>
-                <div class="call-actions">
-                    <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.rejectCall()"></el-button>
-                    <el-button type="success" circle size="large" :icon="PhoneFilled" @click="chatStore.acceptCall()" class="accept-btn"></el-button>
-                </div>
-            </div>
         </div>
 
         <div class="message-area message-scroll-container">
@@ -699,118 +630,7 @@ watch(
   }
 }
 
-/* ★★★ [WebRTC UI] 視訊通話樣式 ★★★ */
-.video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.9);
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.video-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.remote-video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* 保持比例 */
-  background: #000;
-}
-
-.local-video {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 180px;
-  height: 135px; /* 4:3 比例 */
-  background: #333;
-  border: 2px solid #fff;
-  border-radius: 8px;
-  object-fit: cover;
-  z-index: 1000;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-  
-  @media (max-width: 768px) {
-    width: 120px;
-    height: 90px;
-    bottom: 80px; 
-    right: 10px;
-  }
-}
-
-.video-controls {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  display: flex;
-  gap: 20px;
-}
-
-/* ★★★ [WebRTC Phase 3] 來電彈窗樣式 ★★★ */
-.incoming-call-modal {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 2000; /* 比 Video Overlay 高 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  backdrop-filter: blur(5px);
-}
-
-.modal-content {
-  background: #fff;
-  padding: 30px 50px;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  
-  h3 { margin: 0 0 10px; font-size: 20px; color: #333; }
-  p { margin: 0 0 24px; color: #666; }
-}
-
-.call-actions {
-  display: flex;
-  gap: 40px;
-}
-
-.accept-btn {
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(103, 194, 58, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(103, 194, 58, 0); }
-}
-
+/* ★★★ [Global Call] 移除原有的 video-overlay 與 incoming-call-modal 樣式 (減少冗餘) ★★★ */
 
 /* =========================================
    DARK MODE (深色模式)
@@ -886,13 +706,6 @@ html.dark {
   .scroll-bottom-btn .new-msg-text {
     background: #2b2b2b;
     color: #66b1ff;
-  }
-  
-  /* [WebRTC UI] Dark Mode Modal */
-  .modal-content {
-    background: #1d1e1f;
-    h3 { color: #e5eaf3; }
-    p { color: #a3a6ad; }
   }
 }
 
