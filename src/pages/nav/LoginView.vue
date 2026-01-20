@@ -3,20 +3,20 @@
     <h1 class="page-title">登入</h1>
     <el-form :model="form" ref="formRef" class="form-card" @submit.native.prevent="handleSubmit">
       <el-row :gutter="20">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <div class="label-wrapper">使用者名稱</div>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <el-form-item prop="username" label-width="0">
             <el-input v-model="form.username" placeholder="請輸入使用者名稱" :disabled="loading" />
           </el-form-item>
         </el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <div class="label-wrapper">密碼</div>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="8">
           <el-form-item prop="password" label-width="0">
             <el-input 
               type="password" 
@@ -29,7 +29,7 @@
         </el-col>
       </el-row>
       <el-row :gutter="20">
-        <el-col :span="16">
+        <el-col :xs="24" :sm="16">
           <el-form-item label-width="0" class="button-form-item">
             <el-button type="primary" native-type="submit" :loading="loading" style="width: 100px;">
               登入
@@ -44,10 +44,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '~/stores/userStore';
-import { authApi } from '~/api/client';
+import { useUserStore } from '../../stores/userStore';
+import { authApi } from '../../api/client';
 import { ElMessage } from 'element-plus'; 
-import type { AuthRequest } from '~/api/models';
+import type { AuthRequest } from '../../api/models';
 
 const form = ref<AuthRequest>({
   username: '',

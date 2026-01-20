@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, watch, inject } from 'vue'; // ★★★ [Mobile Fix] 引入 inject ★★★
 import { useRouter } from 'vue-router';
 import { repository } from '../../../package.json';
 import { toggleDark } from '../../composables';
@@ -14,15 +14,32 @@ const router = useRouter();
 const userStore = useUserStore();
 const chatStore = useChatStore();
 
-const handleNotificationClick = () => {
-  chatStore.unreadNotificationCount = 0;
-  router.push('/tasks');
+// ★★★ [Mobile Fix] 注入 App.vue 提供的 toggle 方法 ★★★
+const toggleMobileMenu = inject('toggleMobileMenu') as () => void;
+
+// ★★★ [Bell -> Chat] 改為跳轉聊天室 ★★★
+const handleChatClick = () => {
+  // chatStore.unreadNotificationCount = 0; // 可選：是否清除計數
+  router.push('/chatRoom');
 };
 
 const handleLogout = () => {
   userStore.logout();
   ElMessage.success('已成功登出');
   router.push('/login');
+};
+
+// ★★★ [Mobile Fix] Logo 分流點擊事件 ★★★
+const handleLogoIconClick = () => {
+  if (window.innerWidth <= 768 && toggleMobileMenu) {
+    toggleMobileMenu();
+  } else {
+    router.push('/');
+  }
+};
+
+const handleLogoTextClick = () => {
+  router.push('/');
 };
 
 onMounted(() => {
@@ -45,36 +62,45 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
 
 <template>
   <el-menu class="el-menu-demo" mode="horizontal" :ellipsis="false" router>
+    
     <el-menu-item index="/">
       <div class="flex items-center justify-center gap-2">
-        <img :src="logoUrl" alt="JProject Logo" class="w-8 h-8 logo-hover" />
-        <span>JProject 展示平台v1.0</span>
+        <img 
+          :src="logoUrl" 
+          alt="JProject Logo" 
+          class="w-8 h-8 logo-hover cursor-pointer" 
+          @click.stop.prevent="handleLogoIconClick"
+        />
+        <span @click.stop.prevent="handleLogoTextClick" class="cursor-pointer">
+          JProject 展示平台v1.0
+        </span>
       </div>
     </el-menu-item>
-    <el-menu-item index="/about">
+
+    <el-menu-item index="/about" class="desktop-only">
       <span>關於平台</span>
     </el-menu-item>
     
-    <el-menu-item index="/user">使用者管理</el-menu-item>
-    <el-menu-item index="/todo">待辦管理</el-menu-item>
+    <el-menu-item index="/user" class="desktop-only">使用者管理</el-menu-item>
+    <el-menu-item index="/todo" class="desktop-only">待辦管理</el-menu-item>
     
-    <el-menu-item index="/chatRoom">
+    <el-menu-item index="/chatRoom" class="desktop-only">
       <el-icon><ChatDotRound /></el-icon>
       <span>聊天室</span>
     </el-menu-item>
 
-    <el-menu-item h="full" @click="handleNotificationClick">
+    <el-menu-item h="full" @click="handleChatClick">
        <el-badge 
          :value="chatStore.unreadNotificationCount" 
          :hidden="chatStore.unreadNotificationCount === 0" 
          class="item"
          style="display: flex; align-items: center;"
        >
-         <el-icon><Bell /></el-icon>
+         <el-icon><ChatDotRound /></el-icon>
        </el-badge>
     </el-menu-item>
 
-    <el-menu-item h="full" @click="toggleDark()">
+    <el-menu-item h="full" @click="toggleDark()" class="desktop-only">
       <button
         class="w-full cursor-pointer border-none bg-transparent"
         style="height: var(--ep-menu-item-height)"
@@ -98,7 +124,7 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
               >
                 {{ userStore.username ? userStore.username.charAt(0).toUpperCase() : 'U' }}
               </el-avatar>
-              <span class="text-sm font-medium hidden sm:block" style="color: var(--el-text-color-regular);">
+              <span class="text-sm font-medium hidden sm:block desktop-username" style="color: var(--el-text-color-regular);">
                 {{ userStore.username }}
               </span>
             </div>
@@ -153,6 +179,17 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
   transition: transform 0.3s ease;
   &:hover {
     transform: scale(1.1);
+  }
+}
+
+/* ★★★ [Mobile Fix] 響應式隱藏控制 ★★★ */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .desktop-username {
+    display: none !important;
   }
 }
 </style>
