@@ -3,7 +3,6 @@ import { ref, watch, provide, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import BaseHeader from './components/layouts/BaseHeader.vue';
 import BaseSide from './components/layouts/BaseSide.vue';
-// ★★★ [Global Call] 引入 Store 與 Icons ★★★
 import { useChatStore } from './stores/chatStore';
 import { Phone, PhoneFilled } from '@element-plus/icons-vue';
 
@@ -44,7 +43,9 @@ watch(
 // ★★★ [Notification] 請求通知權限 ★★★
 onMounted(() => {
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+    Notification.requestPermission().then(permission => {
+      console.log('[Notification] Permission:', permission);
+    });
   }
 });
 
@@ -54,52 +55,63 @@ watch(
   (val) => {
     if (val) {
         // --- [START] 來電開始 ---
+        console.log('[App] 收到來電，開始鈴聲與震動流程');
         
         // 1. 播放鈴聲
         ringtoneAudio.currentTime = 0;
         ringtoneAudio.play().catch(e => console.error('無法播放鈴聲 (可能是瀏覽器阻擋自動播放)', e));
 
-        // 2. 啟動震動 (Android Only)
-        // 模式: 震動 500ms -> 停 200ms -> 震動 500ms
+        // 2. 啟動震動 (嘗試 DOM API)
         if (navigator.vibrate) {
-            const vibrationPattern = [500, 200, 500];
-            navigator.vibrate(vibrationPattern);
+            // Android Chrome 若無使用者互動，此行可能會回傳 false
+            const success = navigator.vibrate([1000, 500, 1000]); 
+            console.log('[App] navigator.vibrate 結果:', success ? '成功' : '失敗/被阻擋');
             
-            // 設定循環 (每 2 秒執行一次震動模式)
+            // 強制循環震動 (長震動模式)
             vibrationInterval.value = setInterval(() => {
-                navigator.vibrate(vibrationPattern);
+                const retry = navigator.vibrate([1000, 500, 1000]);
+                console.log('[App] 循環震動重試:', retry);
             }, 2000);
+        } else {
+            console.warn('[App] 此瀏覽器不支援 navigator.vibrate API');
         }
 
-        // 3. 發送瀏覽器原生通知 (背景時顯示)
-        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
-            const notification = new Notification('來電通知', {
-                body: `${val.sender} 正在邀請您進行視訊通話...`,
-                icon: '/favicon.ico', 
-                tag: 'incoming-call',
-                // 嘗試在 Notification 層級也請求震動 (部分瀏覽器支援)
-                vibrate: [500, 200, 500] 
-            });
+        // 3. 發送瀏覽器原生通知 (這是 Android 喚醒震動的關鍵)
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                // 在手機上，只有 "System Notification" 才能繞過互動限制產生震動
+                const notification = new Notification('📞 來電通知', {
+                    body: `${val.sender} 邀請您視訊通話...`,
+                    icon: '/favicon.ico', 
+                    tag: 'incoming-call',
+                    requireInteraction: true, // 要求使用者互動才消失
+                    vibrate: [1000, 500, 1000], // 通知層級的震動設定
+                    silent: false // 確保不是靜音通知
+                });
 
-            notification.onclick = () => {
-                window.focus(); // 點擊通知將視窗帶回前景
-                notification.close();
-            };
+                notification.onclick = () => {
+                    window.focus(); 
+                    notification.close();
+                };
+            } catch (e) {
+                console.error('[App] 建立通知失敗:', e);
+            }
         }
     } else {
         // --- [STOP] 接聽/掛斷/拒絕/結束 ---
+        console.log('[App] 通話結束，停止鈴聲與震動');
 
         // 1. 停止鈴聲
         ringtoneAudio.pause();
-        ringtoneAudio.currentTime = 0; // 重置進度條
+        ringtoneAudio.currentTime = 0;
 
-        // 2. 停止震動 (清除計時器 + 強制停止)
+        // 2. 停止震動
         if (vibrationInterval.value) {
             clearInterval(vibrationInterval.value);
             vibrationInterval.value = null;
         }
         if (navigator.vibrate) {
-            navigator.vibrate(0); // 傳入 0 立即停止震動
+            navigator.vibrate(0); // 傳入 0 立即停止
         }
     }
   }
@@ -214,10 +226,7 @@ onUnmounted(() => {
   height: 100%;
   overflow-y: auto; 
   border-right: 1px solid var(--ep-border-color);
-  
-  /* ★★★ [Dark Mode Fix] 使用變數，支援深色模式 ★★★ */
   background-color: var(--ep-bg-color); 
-  
   transition: transform 0.3s ease; 
   z-index: 2000; 
 }
