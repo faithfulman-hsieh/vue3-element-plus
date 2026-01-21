@@ -43,9 +43,7 @@ watch(
 // ★★★ [Notification] 請求通知權限 ★★★
 onMounted(() => {
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().then(permission => {
-      console.log('[Notification] Permission:', permission);
-    });
+    Notification.requestPermission();
   }
 });
 
@@ -55,7 +53,6 @@ watch(
   (val) => {
     if (val) {
         // --- [START] 來電開始 ---
-        console.log('[App] 收到來電，開始鈴聲與震動流程');
         
         // 1. 播放鈴聲
         ringtoneAudio.currentTime = 0;
@@ -63,43 +60,31 @@ watch(
 
         // 2. 啟動震動 (嘗試 DOM API)
         if (navigator.vibrate) {
-            // Android Chrome 若無使用者互動，此行可能會回傳 false
-            const success = navigator.vibrate([1000, 500, 1000]); 
-            console.log('[App] navigator.vibrate 結果:', success ? '成功' : '失敗/被阻擋');
+            const pattern = [1000, 500, 1000];
+            navigator.vibrate(pattern);
             
-            // 強制循環震動 (長震動模式)
+            // 強制循環震動
             vibrationInterval.value = setInterval(() => {
-                const retry = navigator.vibrate([1000, 500, 1000]);
-                console.log('[App] 循環震動重試:', retry);
-            }, 2000);
-        } else {
-            console.warn('[App] 此瀏覽器不支援 navigator.vibrate API');
+                navigator.vibrate(pattern);
+            }, 2500);
         }
 
-        // 3. 發送瀏覽器原生通知 (這是 Android 喚醒震動的關鍵)
-        if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-                // 在手機上，只有 "System Notification" 才能繞過互動限制產生震動
-                const notification = new Notification('📞 來電通知', {
-                    body: `${val.sender} 邀請您視訊通話...`,
-                    icon: '/favicon.ico', 
-                    tag: 'incoming-call',
-                    requireInteraction: true, // 要求使用者互動才消失
-                    vibrate: [1000, 500, 1000], // 通知層級的震動設定
-                    silent: false // 確保不是靜音通知
-                });
+        // 3. 發送瀏覽器原生通知
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            const notification = new Notification('📞 來電通知', {
+                body: `${val.sender} 邀請您視訊通話...`,
+                icon: '/favicon.ico', 
+                tag: 'incoming-call',
+                vibrate: [1000, 500, 1000]
+            });
 
-                notification.onclick = () => {
-                    window.focus(); 
-                    notification.close();
-                };
-            } catch (e) {
-                console.error('[App] 建立通知失敗:', e);
-            }
+            notification.onclick = () => {
+                window.focus(); 
+                notification.close();
+            };
         }
     } else {
         // --- [STOP] 接聽/掛斷/拒絕/結束 ---
-        console.log('[App] 通話結束，停止鈴聲與震動');
 
         // 1. 停止鈴聲
         ringtoneAudio.pause();
@@ -111,35 +96,44 @@ watch(
             vibrationInterval.value = null;
         }
         if (navigator.vibrate) {
-            navigator.vibrate(0); // 傳入 0 立即停止
+            navigator.vibrate(0);
         }
     }
   }
 );
 
-// ★★★ [Global Call] 監聽影像流並綁定 Video 元素 ★★★
+// ★★★ [Video Fix] 雙向監聽：確保影像流與元素都能正確對應 ★★★
+
+// 1. 當 <video> 元素被建立時 (v-if 變為 true)
+watch(localVideo, (el) => {
+  if (el && chatStore.localStream) {
+    el.srcObject = chatStore.localStream;
+  }
+});
+
+watch(remoteVideo, (el) => {
+  if (el && chatStore.remoteStream) {
+    el.srcObject = chatStore.remoteStream;
+  }
+});
+
+// 2. 當 Stream 改變時 (且 <video> 已存在)
 watch(
   () => chatStore.localStream,
   (newStream) => {
-    nextTick(() => {
-      if (localVideo.value && newStream) {
-        localVideo.value.srcObject = newStream;
-      }
-    });
-  },
-  { immediate: true }
+    if (localVideo.value && newStream) {
+      localVideo.value.srcObject = newStream;
+    }
+  }
 );
 
 watch(
   () => chatStore.remoteStream,
   (newStream) => {
-    nextTick(() => {
-      if (remoteVideo.value && newStream) {
-        remoteVideo.value.srcObject = newStream;
-      }
-    });
-  },
-  { immediate: true }
+    if (remoteVideo.value && newStream) {
+      remoteVideo.value.srcObject = newStream;
+    }
+  }
 );
 
 // ★★★ [Global Call] 離開 App 時確保所有效果停止 ★★★
@@ -175,6 +169,7 @@ onUnmounted(() => {
         <div class="video-container">
             <video ref="remoteVideo" class="remote-video" autoplay playsinline></video>
             <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
+            
             <div class="video-controls">
                 <el-button type="danger" circle size="large" :icon="Phone" @click="chatStore.closeCall()" title="掛斷"></el-button>
             </div>
@@ -273,7 +268,6 @@ onUnmounted(() => {
    ★★★ [Global Call] 全域通話介面樣式 ★★★
    ========================================= */
 
-/* 視訊通話 Overlay */
 .global-video-overlay {
   position: fixed;
   top: 0;
@@ -281,7 +275,7 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.9);
-  z-index: 9999; /* 最高層級 */
+  z-index: 9999; 
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -318,7 +312,6 @@ onUnmounted(() => {
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
-/* 手機版視訊視窗調整 */
 @media (max-width: 768px) {
   .local-video {
     width: 120px;
