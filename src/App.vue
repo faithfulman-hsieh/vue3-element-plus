@@ -18,9 +18,11 @@ const chatStore = useChatStore();
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
 
-// ★★★ [Global Call] 鈴聲物件 ★★★
+// ★★★ [Global Call] 鈴聲與震動控制 ★★★
 const ringtoneAudio = new Audio('https://media.twiliocdn.com/sdk/js/client/sounds/releases/1.0.0/incoming.mp3'); 
 ringtoneAudio.loop = true;
+// ★★★ [Vibration] 震動計時器 (Android) ★★★
+const vibrationInterval = ref<any>(null);
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
@@ -46,21 +48,37 @@ onMounted(() => {
   }
 });
 
-// ★★★ [Global Call] 監聽來電狀態，控制鈴聲與原生通知 ★★★
+// ★★★ [Global Call] 監聽來電狀態，控制鈴聲、震動與原生通知 ★★★
 watch(
   () => chatStore.incomingCall,
   (val) => {
     if (val) {
+        // --- [START] 來電開始 ---
+        
         // 1. 播放鈴聲
         ringtoneAudio.currentTime = 0;
-        ringtoneAudio.play().catch(e => console.error('無法播放鈴聲', e));
+        ringtoneAudio.play().catch(e => console.error('無法播放鈴聲 (可能是瀏覽器阻擋自動播放)', e));
 
-        // 2. 發送瀏覽器原生通知 (背景時顯示)
+        // 2. 啟動震動 (Android Only)
+        // 模式: 震動 500ms -> 停 200ms -> 震動 500ms
+        if (navigator.vibrate) {
+            const vibrationPattern = [500, 200, 500];
+            navigator.vibrate(vibrationPattern);
+            
+            // 設定循環 (每 2 秒執行一次震動模式)
+            vibrationInterval.value = setInterval(() => {
+                navigator.vibrate(vibrationPattern);
+            }, 2000);
+        }
+
+        // 3. 發送瀏覽器原生通知 (背景時顯示)
         if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
             const notification = new Notification('來電通知', {
                 body: `${val.sender} 正在邀請您進行視訊通話...`,
-                icon: '/favicon.ico', // 或您的 Logo 路徑
-                tag: 'incoming-call'
+                icon: '/favicon.ico', 
+                tag: 'incoming-call',
+                // 嘗試在 Notification 層級也請求震動 (部分瀏覽器支援)
+                vibrate: [500, 200, 500] 
             });
 
             notification.onclick = () => {
@@ -69,8 +87,20 @@ watch(
             };
         }
     } else {
-        // 停止鈴聲
+        // --- [STOP] 接聽/掛斷/拒絕/結束 ---
+
+        // 1. 停止鈴聲
         ringtoneAudio.pause();
+        ringtoneAudio.currentTime = 0; // 重置進度條
+
+        // 2. 停止震動 (清除計時器 + 強制停止)
+        if (vibrationInterval.value) {
+            clearInterval(vibrationInterval.value);
+            vibrationInterval.value = null;
+        }
+        if (navigator.vibrate) {
+            navigator.vibrate(0); // 傳入 0 立即停止震動
+        }
     }
   }
 );
@@ -100,9 +130,11 @@ watch(
   { immediate: true }
 );
 
-// ★★★ [Global Call] 離開 App 時停止鈴聲 ★★★
+// ★★★ [Global Call] 離開 App 時確保所有效果停止 ★★★
 onUnmounted(() => {
   ringtoneAudio.pause();
+  if (vibrationInterval.value) clearInterval(vibrationInterval.value);
+  if (navigator.vibrate) navigator.vibrate(0);
 });
 </script>
 
