@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, watch, inject } from 'vue'; // ★★★ [Mobile Fix] 引入 inject ★★★
+import { onMounted, watch, inject, computed } from 'vue'; // ★★★ [Feature] 引入 computed ★★★
 import { useRouter } from 'vue-router';
 import { repository } from '../../../package.json';
 import { toggleDark } from '../../composables';
@@ -17,9 +17,16 @@ const chatStore = useChatStore();
 // ★★★ [Mobile Fix] 注入 App.vue 提供的 toggle 方法 ★★★
 const toggleMobileMenu = inject('toggleMobileMenu') as () => void;
 
+// ★★★ [Feature] 計算總未讀數量 (聊天訊息 + 系統通知) ★★★
+const totalUnreadCount = computed(() => {
+  // 計算 unreadMap 所有值的總和
+  const chatUnread = Object.values(chatStore.unreadMap).reduce((sum, count) => sum + count, 0);
+  return chatStore.unreadNotificationCount + chatUnread;
+});
+
 // ★★★ [Bell -> Chat] 改為跳轉聊天室 ★★★
 const handleChatClick = () => {
-  // chatStore.unreadNotificationCount = 0; // 可選：是否清除計數
+  // chatStore.unreadNotificationCount = 0; // 可選：是否清除計數，或是進聊天室後再已讀
   router.push('/chatRoom');
 };
 
@@ -84,20 +91,16 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
     <el-menu-item index="/user" class="desktop-only">使用者管理</el-menu-item>
     <el-menu-item index="/todo" class="desktop-only">待辦管理</el-menu-item>
     
-    <el-menu-item index="/chatRoom" class="desktop-only">
-      <el-icon><ChatDotRound /></el-icon>
-      <span>聊天室</span>
-    </el-menu-item>
-
     <el-menu-item h="full" @click="handleChatClick">
        <el-badge 
-         :value="chatStore.unreadNotificationCount" 
-         :hidden="chatStore.unreadNotificationCount === 0" 
+         :is-dot="totalUnreadCount > 0"
          class="item"
          style="display: flex; align-items: center;"
        >
          <el-icon><ChatDotRound /></el-icon>
        </el-badge>
+       
+       <span class="desktop-only" style="margin-left: 8px;">聊天室</span>
     </el-menu-item>
 
     <el-menu-item h="full" @click="toggleDark()" class="desktop-only">
