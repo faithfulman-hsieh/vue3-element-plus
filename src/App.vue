@@ -103,8 +103,9 @@ watch(
 );
 
 // ★★★ [Video Fix] 雙向監聽：確保影像流與元素都能正確對應 ★★★
+// 原因：v-if 導致 video 元素建立時機比 stream 獲取時機晚，原本的 watch 無法捕捉到元素掛載的瞬間。
 
-// 1. 當 <video> 元素被建立時 (v-if 變為 true)
+// 1. 監聽「元素掛載」：當 v-if 成立，video 元素出現時，如果已有 stream 就綁定
 watch(localVideo, (el) => {
   if (el && chatStore.localStream) {
     el.srcObject = chatStore.localStream;
@@ -117,7 +118,7 @@ watch(remoteVideo, (el) => {
   }
 });
 
-// 2. 當 Stream 改變時 (且 <video> 已存在)
+// 2. 監聽「Stream 變化」：當元素已存在，且 Stream 發生變化時綁定 (保留原本邏輯，但移除 nextTick 依賴)
 watch(
   () => chatStore.localStream,
   (newStream) => {
