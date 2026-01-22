@@ -10,7 +10,8 @@ interface ChatMessage {
   content: string
   // ★★★ [即時已讀回執] 增加 READ 類型 ★★★
   // ★★★ [WebRTC Phase 3] 補上 REJECT 類型 ★★★
-  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ' | 'REJECT'
+  // ★★★ [Call Record] 增加 CALL_START, CALL_END 類型 ★★★
+  type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ' | 'REJECT' | 'CALL_START' | 'CALL_END'
   time?: string
   receiver?: string
   data?: string
@@ -139,7 +140,8 @@ export const useChatStore = defineStore('chat', () => {
             return
           }
 
-          if (['CHAT', 'JOIN', 'LEAVE'].includes(body.type)) {
+          // ★★★ [Call Record] 加入 CALL_START, CALL_END 到接收列表 ★★★
+          if (['CHAT', 'JOIN', 'LEAVE', 'CALL_START', 'CALL_END'].includes(body.type)) {
             messages.value.push(body)
           }
         })
@@ -260,6 +262,27 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // ★★★ [Call Record] 發送通話紀錄系統訊息 ★★★
+  const sendCallRecord = (type: 'CALL_START' | 'CALL_END', content: string) => {
+    if (stompClient.value && isConnected.value && currentCallTarget.value) {
+        const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
+        const msg = {
+            sender: currentUsername,
+            receiver: currentCallTarget.value,
+            content: content,
+            type: type,
+            read: false
+        }
+        stompClient.value.publish({
+            destination: '/app/chat.sendPrivateMessage',
+            body: JSON.stringify(msg)
+        })
+        
+        // 將自己的紀錄也推入列表 (如果後端沒有回傳給發送者的話)
+        messages.value.push(msg as ChatMessage)
+    }
+  }
+
   const callUser = async (targetUser: string) => {
     currentCallTarget.value = targetUser
     await initWebRTC()
@@ -319,6 +342,9 @@ export const useChatStore = defineStore('chat', () => {
         data: JSON.stringify(answer)
     })
     
+    // ★★★ [Call Record] 發送通話開始紀錄 ★★★
+    sendCallRecord('CALL_START', '通話開始')
+
     // 清空來電狀態
     incomingCall.value = null
   }
@@ -381,19 +407,26 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
     else if (msg.type === 'HANGUP' || msg.type === 'REJECT') {
-        closeCall()
+        // ★★★ [Call Record] 收到掛斷訊號，只關閉連線，不重複發送紀錄 ★★★
+        closeCall(false) 
         ElNotification.info('通話已結束或被拒絕')
     }
   }
 
-  const closeCall = () => {
+  // ★★★ [Call Record] 修改 closeCall，加入 notify 參數 ★★★
+  const closeCall = (notify: boolean = true) => {
     if (peerConnection.value) {
-        if (currentCallTarget.value) {
+        // ★★★ [Call Record] 只有主動掛斷的一方發送結束紀錄，避免重複 ★★★
+        if (notify && currentCallTarget.value) {
+            sendCallRecord('CALL_END', '通話結束')
+            
+            // 發送 HANGUP 信令
             sendSignal({
                 type: 'HANGUP',
                 receiver: currentCallTarget.value
             })
         }
+        
         peerConnection.value.close()
         peerConnection.value = null
     }

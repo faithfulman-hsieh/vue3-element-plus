@@ -3,8 +3,8 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-// ★★★ [Global Call] 移除 PhoneFilled (搬去 App.vue) ★★★
-import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft } from '@element-plus/icons-vue'; 
+// ★★★ [WebRTC UI] 引入 PhoneFilled Icon (接聽用) ★★★
+import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft, PhoneFilled } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
 import type { ElScrollbar } from 'element-plus'; 
@@ -24,7 +24,12 @@ const isAtBottom = ref(true);
 const showScrollButton = ref(false); 
 const newMsgCount = ref(0); 
 
-// ★★★ [Global Call] 移除 localVideo, remoteVideo, ringtoneAudio (搬去 App.vue) ★★★
+// ★★★ [WebRTC UI] 視訊元素 Ref (已搬到 App.vue，這裡移除) ★★★
+// const localVideo = ref<HTMLVideoElement | null>(null);
+// const remoteVideo = ref<HTMLVideoElement | null>(null);
+
+// ★★★ [WebRTC Phase 3] 鈴聲物件 (已搬到 App.vue，這裡移除) ★★★
+// const ringtoneAudio = ...
 
 // ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
@@ -57,17 +62,10 @@ onMounted(async () => {
   }
 });
 
-// ★★★ [斷線保護] 離開頁面時斷線 (可選：如果想保持全域連線，這裡可以註解掉 disconnect，但為了安全先保留) ★★★
-// 註：因為 BaseHeader 也有連線監聽，這裡斷線後 BaseHeader 可能會自動重連，或保持斷線直到再次進入。
-// 如果希望離開聊天室也能收訊，建議改為「只在登出時斷線」。
-// 但依照 Legacy Mode，我先保留原樣。
+// ★★★ [斷線保護] 離開頁面時斷線 ★★★
 onUnmounted(() => {
   console.log('[ChatRoom] 元件卸載')
-  // chatStore.disconnect() // ★★★ 建議註解掉這行，讓連線保持以接收全域來電 ★★★
-  // 但為了遵守 "Legacy Code Mode" 不隨意改邏輯，我先保留，
-  // 不過使用者若離開 ChatRoom，BaseHeader 的 watch 可能會把它連回來，或者 App.vue 的邏輯會接手。
-  // 為了最穩定的全域接聽，其實應該移除這裡的 disconnect。
-  // 這裡我做一個微調：不呼叫 disconnect，讓 App.vue/BaseHeader 繼續維持連線。
+  // chatStore.disconnect() // 註解掉以保持全域連線
 })
 
 // --- 計算屬性 ---
@@ -128,6 +126,7 @@ const handleSendMessage = () => {
   messageInput.value = '';
 };
 
+// ★★★ [輸入中提示] 處理輸入事件 ★★★
 const handleTyping = () => {
   const now = Date.now();
   if (now - lastTypingTime > 2000) {
@@ -137,10 +136,12 @@ const handleTyping = () => {
   }
 };
 
+// ★★★ [Mobile Fix] 返回列表方法 ★★★
 const handleBackToList = () => {
   activeChatUser.value = null;
 };
 
+// ★★★ [智慧捲動] 捲動事件監聽：判斷是否在底部 ★★★
 const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   const wrap = scrollbarRef.value?.wrapRef; 
   if (!wrap) return;
@@ -156,6 +157,7 @@ const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   }
 };
 
+// ★★★ [智慧捲動] 捲動到底部函式 (支援平滑捲動) ★★★
 const scrollToBottom = (force: boolean = false) => {
   nextTick(() => {
     const wrap = scrollbarRef.value?.wrapRef;
@@ -169,9 +171,9 @@ const scrollToBottom = (force: boolean = false) => {
   });
 };
 
-// ★★★ [Global Call] 移除 Video watcher (搬去 App.vue) ★★★
-// ★★★ [Global Call] 移除 Ringtone watcher (搬去 App.vue) ★★★
+// ★★★ [Global Call] 移除 Watchers (搬去 App.vue) ★★★
 
+// ★★★ [智慧捲動] 智慧監聽訊息變化 ★★★
 watch(
   () => chatStore.messages.length, 
   async (newLen, oldLen) => {
@@ -296,29 +298,40 @@ watch(
               <div 
                 v-for="(msg, index) in currentMessages" 
                 :key="index"
-                class="message-row"
-                :class="{ 'message-mine': msg.sender === userStore.username }"
               >
-                <el-avatar 
-                  v-if="msg.sender !== userStore.username"
-                  :size="36" 
-                  class="msg-avatar"
-                  style="background-color: var(--el-color-primary);"
+                <div 
+                    v-if="msg.type === 'CALL_START' || msg.type === 'CALL_END'" 
+                    class="system-message"
                 >
-                  {{ msg.sender.charAt(0).toUpperCase() }}
-                </el-avatar>
+                    <span>{{ msg.content }} - {{ msg.time || '剛剛' }}</span>
+                </div>
 
-                <div class="message-content-wrapper">
-                  <div class="sender-name" v-if="msg.sender !== userStore.username">
-                    {{ msg.sender }}
-                  </div>
-                  <div class="bubble">
-                    {{ msg.content }}
-                  </div>
-                  <div v-if="msg.sender === userStore.username" class="message-status">
-                    <span v-if="msg.read" class="read-text">已讀</span>
-                    <span v-else class="unread-text">送達</span>
-                  </div>
+                <div 
+                    v-else
+                    class="message-row"
+                    :class="{ 'message-mine': msg.sender === userStore.username }"
+                >
+                    <el-avatar 
+                    v-if="msg.sender !== userStore.username"
+                    :size="36" 
+                    class="msg-avatar"
+                    style="background-color: var(--el-color-primary);"
+                    >
+                    {{ msg.sender.charAt(0).toUpperCase() }}
+                    </el-avatar>
+
+                    <div class="message-content-wrapper">
+                    <div class="sender-name" v-if="msg.sender !== userStore.username">
+                        {{ msg.sender }}
+                    </div>
+                    <div class="bubble">
+                        {{ msg.content }}
+                    </div>
+                    <div v-if="msg.sender === userStore.username" class="message-status">
+                        <span v-if="msg.read" class="read-text">已讀</span>
+                        <span v-else class="unread-text">送達</span>
+                    </div>
+                    </div>
                 </div>
               </div>
               
@@ -590,6 +603,20 @@ watch(
 .read-text { color: #67c23a; } /* 綠色已讀 */
 .unread-text { color: #909399; } /* 灰色送達 */
 
+/* ★★★ [Call Record] 系統訊息樣式 ★★★ */
+.system-message {
+  text-align: center;
+  margin: 10px 0;
+  
+  span {
+    background-color: #e0e0e0;
+    color: #606266;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+}
+
 /* ★★★ [智慧捲動] 懸浮按鈕樣式 ★★★ */
 .scroll-bottom-btn {
   position: absolute;
@@ -629,8 +656,6 @@ watch(
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
 }
-
-/* ★★★ [Global Call] 移除原有的 video-overlay 與 incoming-call-modal 樣式 (減少冗餘) ★★★ */
 
 /* =========================================
    DARK MODE (深色模式)
@@ -706,6 +731,12 @@ html.dark {
   .scroll-bottom-btn .new-msg-text {
     background: #2b2b2b;
     color: #66b1ff;
+  }
+  
+  /* [Call Record] Dark Mode 系統訊息 */
+  .system-message span {
+    background-color: #333;
+    color: #a3a6ad;
   }
 }
 
