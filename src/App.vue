@@ -5,6 +5,8 @@ import BaseHeader from './components/layouts/BaseHeader.vue';
 import BaseSide from './components/layouts/BaseSide.vue';
 import { useChatStore } from './stores/chatStore';
 import { Phone, PhoneFilled } from '@element-plus/icons-vue';
+// ★★★ [PWA + Push] 引入 Firebase 初始化 ★★★
+import { initFirebaseMessaging } from './utils/firebase';
 
 // ★★★ [Mobile Fix] 手機版選單狀態控制 ★★★
 const isMobileMenuOpen = ref(false);
@@ -40,11 +42,15 @@ watch(
   }
 );
 
-// ★★★ [Notification] 請求通知權限 ★★★
-onMounted(() => {
+// ★★★ [Notification] 請求通知權限 與 PWA 初始化 ★★★
+onMounted(async () => {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
+  
+  // ★★★ [PWA + Push] 啟動 Firebase 監聽 ★★★
+  // 這會在背景註冊 Service Worker 並取得 Token
+  await initFirebaseMessaging();
 });
 
 // ★★★ [Global Call] 監聽來電狀態，控制鈴聲、震動與原生通知 ★★★
@@ -103,7 +109,6 @@ watch(
 );
 
 // ★★★ [Video Fix] 雙向監聽：確保影像流與元素都能正確對應 ★★★
-// 原因：v-if 導致 video 元素建立時機比 stream 獲取時機晚，原本的 watch 無法捕捉到元素掛載的瞬間。
 
 // 1. 監聽「元素掛載」：當 v-if 成立，video 元素出現時，如果已有 stream 就綁定
 watch(localVideo, (el) => {
