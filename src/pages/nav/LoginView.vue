@@ -45,7 +45,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../../stores/userStore';
-import { authApi } from '../../api/client';
+import { authApi, userApi } from '../../api/client'; // ★★★ [FCM] 補上 userApi ★★★
 import { ElMessage } from 'element-plus'; 
 import type { AuthRequest } from '../../api/models';
 
@@ -69,6 +69,17 @@ const handleSubmit = async () => {
       sessionStorage.setItem('jwtToken', response.data);
       // 修改：將使用者輸入的帳號傳入 login 方法
       userStore.login(form.value.username);
+
+      // ★★★ [FCM Token Upload] 登入成功後，檢查並上傳 Token ★★★
+      const cachedToken = sessionStorage.getItem('fcmToken');
+      if (cachedToken) {
+          console.log('[LoginView] 偵測到 FCM Token，正在背景上傳...');
+          // 不用 await，讓它在背景跑，不卡登入跳轉
+          userApi.updateFcmToken(cachedToken)
+              .then(() => console.log('[LoginView] FCM Token 上傳成功'))
+              .catch((err: any) => console.error('[LoginView] FCM Token 上傳失敗', err));
+      }
+
       ElMessage.success('登入成功，歡迎回來！');
       router.push('/');
     }
