@@ -3,19 +3,15 @@ import { ref } from 'vue'
 import { Client, type Message } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { ElNotification } from 'element-plus'
-import { chatApi } from '../api/client' 
+import { chatApi, userApi } from '../api/client' // ★★★ [Line-like] 引入 userApi ★★★
 
 interface ChatMessage {
   sender: string
   content: string
-  // ★★★ [即時已讀回執] 增加 READ 類型 ★★★
-  // ★★★ [WebRTC Phase 3] 補上 REJECT 類型 ★★★
-  // ★★★ [Call Record] 增加 CALL_START, CALL_END 類型 ★★★
   type: 'CHAT' | 'JOIN' | 'LEAVE' | 'NOTIFICATION' | 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'HANGUP' | 'TYPING' | 'READ' | 'REJECT' | 'CALL_START' | 'CALL_END'
   time?: string
   receiver?: string
   data?: string
-  // ★★★ [即時已讀回執] 增加已讀狀態屬性 ★★★
   read?: boolean
 }
 
@@ -30,17 +26,25 @@ export const useChatStore = defineStore('chat', () => {
   const typingUsers = ref<Set<string>>(new Set())
   const typingTimeouts = new Map<string, any>()
 
-  // ★★★ [WebRTC] 新增狀態變數 (Phase 1) ★★★
+  // WebRTC 相關狀態
   const peerConnection = ref<any>(null) 
   const localStream = ref<MediaStream | null>(null)
   const remoteStream = ref<MediaStream | null>(null)
   const currentCallTarget = ref<string>('') 
-  // ★★★ [WebRTC Fix] 新增 ICE Candidate 緩存佇列 ★★★
   const candidateQueue = ref<RTCIceCandidateInit[]>([])
-
-  // ★★★ [WebRTC Phase 3] 來電資訊狀態 ★★★
-  // 當有人打來時，暫存對方的資料 (sender, offer SDP)
   const incomingCall = ref<{ sender: string, offerData: any } | null>(null)
+  
+  // ★★★ [Line-like Call UX] 狀態追蹤 ★★★
+  const isCallEstablished = ref(false)
+  const callStartTime = ref<number>(0) // 新增：紀錄通話開始時間點
+
+  // ★★★ [Line-like Call UX] 格式化通話時長 (例如 65秒 -> 1:05) ★★★
+  const formatDuration = (ms: number): string => {
+    const totalSeconds = Math.floor(ms / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
 
   const fetchHistory = async () => {
     try {
@@ -53,14 +57,19 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // ★★★ [Line-like] 修改：取得「所有使用者」並視為可聯繫 ★★★
   const fetchOnlineUsers = async () => {
     try {
-      const res = await chatApi.getOnlineUsers()
+      // 呼叫 getUsers 取得全站使用者
+      const res = await userApi.getUsers()
       if (res.data && Array.isArray(res.data)) {
-        res.data.forEach((user: string) => onlineUsers.value.add(user))
+        res.data.forEach((user: any) => {
+            const name = user.username || user.name
+            if (name) onlineUsers.value.add(name)
+        })
       }
     } catch (e) {
-      console.error('[ChatStore] 無法取得線上名單', e)
+      console.error('[ChatStore] 無法取得使用者名單', e)
     }
   }
 
@@ -119,28 +128,22 @@ export const useChatStore = defineStore('chat', () => {
       webSocketFactory: () => new SockJS(wsUrl),
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,
+      heartbeatIncoming: 20000, 
+      heartbeatOutgoing: 20000,
 
       onConnect: () => {
         console.log('[ChatStore] ✅ STOMP 連線成功')
         isConnected.value = true
         fetchHistory()
-        fetchOnlineUsers()
+        fetchOnlineUsers() 
 
         client.subscribe('/topic/public-chat', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
-          
-          if (body.type === 'JOIN') {
-            onlineUsers.value.add(body.sender)
-          } else if (body.type === 'LEAVE') {
-            onlineUsers.value.delete(body.sender)
-          }
-
+          if (body.type === 'JOIN') onlineUsers.value.add(body.sender)
           if (body.type === 'TYPING') {
             handleTypingSignal(body.sender)
             return
           }
-
-          // ★★★ [Call Record] 加入 CALL_START, CALL_END 到接收列表 ★★★
           if (['CHAT', 'JOIN', 'LEAVE', 'CALL_START', 'CALL_END'].includes(body.type)) {
             messages.value.push(body)
           }
@@ -148,7 +151,6 @@ export const useChatStore = defineStore('chat', () => {
 
         client.subscribe('/user/queue/messages', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
-          
           if (body.type === 'READ') {
             const reader = body.sender
             const myUsername = sessionStorage.getItem('username')
@@ -159,14 +161,11 @@ export const useChatStore = defineStore('chat', () => {
             })
             return
           }
-
           if (body.type === 'TYPING') {
             handleTypingSignal(body.sender)
             return
           }
-
           messages.value.push(body)
-          
           const currentUser = sessionStorage.getItem('username')
           if (body.sender !== currentUser) {
              if (!unreadMap.value[body.sender]) unreadMap.value[body.sender] = 0
@@ -174,7 +173,6 @@ export const useChatStore = defineStore('chat', () => {
           }
         })
 
-        // ★★★ [WebRTC] 訂閱 WebRTC 信令頻道 ★★★
         client.subscribe('/user/queue/signal', (message: Message) => {
           const body: ChatMessage = JSON.parse(message.body)
           console.log('[WebRTC] 收到信令:', body.type)
@@ -200,7 +198,6 @@ export const useChatStore = defineStore('chat', () => {
       onWebSocketClose: () => {
         console.warn('[ChatStore] WebSocket 連線斷開')
         isConnected.value = false
-        onlineUsers.value.clear() 
         typingUsers.value.clear()
         closeCall()
       }
@@ -210,10 +207,10 @@ export const useChatStore = defineStore('chat', () => {
     client.activate()
   }
 
-  // ★★★ [WebRTC] 初始化 RTCPeerConnection ★★★
+  // --- WebRTC Logic ---
   const initWebRTC = async () => {
     console.log('[WebRTC] 初始化 PeerConnection')
-    candidateQueue.value = [] // 初始化時清空佇列
+    candidateQueue.value = [] 
     
     const config = {
       iceServers: [
@@ -262,7 +259,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [Call Record] 發送通話紀錄系統訊息 ★★★
   const sendCallRecord = (type: 'CALL_START' | 'CALL_END', content: string) => {
     if (stompClient.value && isConnected.value && currentCallTarget.value) {
         const currentUsername = sessionStorage.getItem('username') || 'Unknown User'
@@ -278,8 +274,8 @@ export const useChatStore = defineStore('chat', () => {
             body: JSON.stringify(msg)
         })
         
-        // 將自己的紀錄也推入列表 (如果後端沒有回傳給發送者的話)
-        messages.value.push(msg as ChatMessage)
+        // ★★★ [Fix] 移除手動 push，避免自己看到兩條訊息 ★★★
+        // messages.value.push(msg as ChatMessage)
     }
   }
 
@@ -298,7 +294,6 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
-  // ★★★ [WebRTC Fix] 處理緩存的 ICE Candidates ★★★
   const processCandidateQueue = async () => {
     if (!peerConnection.value || !peerConnection.value.remoteDescription) return
     
@@ -315,23 +310,20 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [WebRTC Phase 3] 接聽電話 (使用者點擊接聽後觸發) ★★★
   const acceptCall = async () => {
     if (!incomingCall.value) return
     
     const { sender, offerData } = incomingCall.value
-    currentCallTarget.value = sender // 設定通話對象
+    currentCallTarget.value = sender 
     
-    // 1. 初始化 WebRTC
+    // ★★★ [Line-like Call UX] 接通瞬間，記錄開始時間 ★★★
+    isCallEstablished.value = true
+    callStartTime.value = Date.now()
+
     await initWebRTC()
-    
-    // 2. 設定 Remote Desc
     await peerConnection.value.setRemoteDescription(new RTCSessionDescription(offerData))
-    
-    // 3. 處理累積的 Candidates (Fix)
     await processCandidateQueue()
     
-    // 4. 建立 Answer 並傳送
     const answer = await peerConnection.value.createAnswer()
     await peerConnection.value.setLocalDescription(answer)
     
@@ -342,53 +334,44 @@ export const useChatStore = defineStore('chat', () => {
         data: JSON.stringify(answer)
     })
     
-    // ★★★ [Call Record] 發送通話開始紀錄 ★★★
-    sendCallRecord('CALL_START', '通話開始')
-
-    // 清空來電狀態
+    // 發送「通話已接聽」
+    sendCallRecord('CALL_START', '通話已接聽')
     incomingCall.value = null
   }
 
-  // ★★★ [WebRTC Phase 3] 拒絕接聽 ★★★
   const rejectCall = () => {
     if (!incomingCall.value) return
-    
     const { sender } = incomingCall.value
+    currentCallTarget.value = sender 
     console.log('[WebRTC] 拒絕接聽')
     
-    // 發送 HANGUP 或 REJECT 訊號通知對方
     sendSignal({
-        type: 'HANGUP', // 或者用 REJECT
+        type: 'HANGUP', 
         receiver: sender
     })
     
+    sendCallRecord('CALL_END', '未接來電')
     incomingCall.value = null
+    currentCallTarget.value = ''
   }
 
-  // ★★★ [WebRTC] 處理接收到的信令 ★★★
   const handleWebRTCSignal = async (msg: ChatMessage) => {
     const signalData = msg.data ? JSON.parse(msg.data) : null
 
     if (msg.type === 'OFFER') {
-        // ★★★ [WebRTC Phase 3] 收到來電，不自動接聽，改為顯示通知 ★★★
-        console.log('[WebRTC] 收到來電 OFFER，等待使用者接聽...')
-        
-        // 如果已經在通話中，可能要回覆 Busy
-        if (peerConnection.value) {
-            console.warn('[WebRTC] 通話中收到新來電，暫時忽略')
-            return
-        }
-
-        // 設定來電狀態，讓 UI 顯示彈窗
+        if (peerConnection.value) { return }
         incomingCall.value = {
             sender: msg.sender,
             offerData: signalData
         }
     }
     else if (msg.type === 'ANSWER') {
+        // ★★★ [Line-like Call UX] 對方接聽，我也要記錄開始時間 ★★★
+        isCallEstablished.value = true
+        callStartTime.value = Date.now()
+
         if (peerConnection.value) {
             await peerConnection.value.setRemoteDescription(new RTCSessionDescription(signalData))
-            // 設定完 Remote Description 後，立刻處理累積的 Candidates
             await processCandidateQueue()
         }
     }
@@ -401,32 +384,34 @@ export const useChatStore = defineStore('chat', () => {
                     console.error('[WebRTC] AddIceCandidate Error', e)
                 }
             } else {
-                console.log('[WebRTC] RemoteDescription 未就緒，緩存 Candidate')
                 candidateQueue.value.push(signalData)
             }
         }
     }
     else if (msg.type === 'HANGUP' || msg.type === 'REJECT') {
-        // ★★★ [Call Record] 收到掛斷訊號，只關閉連線，不重複發送紀錄 ★★★
         closeCall(false) 
         ElNotification.info('通話已結束或被拒絕')
     }
   }
 
-  // ★★★ [Call Record] 修改 closeCall，加入 notify 參數 ★★★
   const closeCall = (notify: boolean = true) => {
     if (peerConnection.value) {
-        // ★★★ [Call Record] 只有主動掛斷的一方發送結束紀錄，避免重複 ★★★
         if (notify && currentCallTarget.value) {
-            sendCallRecord('CALL_END', '通話結束')
+            // ★★★ [Line-like Call UX] 計算時長或顯示取消 ★★★
+            let msgContent = '取消通話'
             
-            // 發送 HANGUP 信令
+            if (isCallEstablished.value && callStartTime.value > 0) {
+                const durationMs = Date.now() - callStartTime.value
+                msgContent = `通話時間 ${formatDuration(durationMs)}`
+            }
+
+            sendCallRecord('CALL_END', msgContent)
+            
             sendSignal({
                 type: 'HANGUP',
                 receiver: currentCallTarget.value
             })
         }
-        
         peerConnection.value.close()
         peerConnection.value = null
     }
@@ -438,8 +423,11 @@ export const useChatStore = defineStore('chat', () => {
     
     remoteStream.value = null
     currentCallTarget.value = ''
-    candidateQueue.value = [] // 清空緩存
-    incomingCall.value = null // 清空來電
+    candidateQueue.value = [] 
+    incomingCall.value = null
+    // Reset status
+    isCallEstablished.value = false
+    callStartTime.value = 0
   }
 
   const handleTypingSignal = (sender: string) => {
@@ -477,7 +465,6 @@ export const useChatStore = defineStore('chat', () => {
       } catch (e) {}
       stompClient.value = null
       isConnected.value = false
-      onlineUsers.value.clear() 
       typingUsers.value.clear()
       closeCall()
     }
@@ -526,11 +513,9 @@ export const useChatStore = defineStore('chat', () => {
     typingUsers,
     localStream,
     remoteStream,
-    // ★★★ [WebRTC Phase 3] 匯出新狀態與方法 ★★★
     incomingCall,
     acceptCall,
     rejectCall,
-    // ---
     callUser, 
     closeCall, 
     connect,

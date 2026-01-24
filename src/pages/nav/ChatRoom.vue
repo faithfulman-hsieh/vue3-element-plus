@@ -3,7 +3,6 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useUserStore } from '../../stores/userStore';
 import { useChatStore } from '../../stores/chatStore';
 import { userApi } from '../../api/client';
-// ★★★ [WebRTC UI] 引入 PhoneFilled Icon (接聽用) ★★★
 import { Search, Promotion, UserFilled, MoreFilled, ArrowDown, VideoCamera, Phone, ArrowLeft, PhoneFilled } from '@element-plus/icons-vue'; 
 import type { User } from '../../api/models';
 import { ElMessage } from 'element-plus';
@@ -19,20 +18,18 @@ const activeChatUser = ref<User | null>(null);
 const messageInput = ref(''); 
 const scrollbarRef = ref<InstanceType<typeof ElScrollbar> | null>(null);
 
-// ★★★ [智慧捲動] 新增捲動相關狀態 ★★★
 const isAtBottom = ref(true); 
 const showScrollButton = ref(false); 
 const newMsgCount = ref(0); 
 
-// ★★★ [WebRTC UI] 視訊元素 Ref (已搬到 App.vue，這裡移除) ★★★
-// const localVideo = ref<HTMLVideoElement | null>(null);
-// const remoteVideo = ref<HTMLVideoElement | null>(null);
-
-// ★★★ [WebRTC Phase 3] 鈴聲物件 (已搬到 App.vue，這裡移除) ★★★
-// const ringtoneAudio = ...
-
-// ★★★ [輸入中提示] 用來限制發送頻率的變數 ★★★
 let lastTypingTime = 0;
+
+// ★★★ [Line-like UX] 格式化時間函式 (例如：上午 10:23) ★★★
+const formatTime = (isoString?: string) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }); // 會產出 "上午 10:00"
+};
 
 // --- 載入資料 ---
 onMounted(async () => {
@@ -62,10 +59,8 @@ onMounted(async () => {
   }
 });
 
-// ★★★ [斷線保護] 離開頁面時斷線 ★★★
 onUnmounted(() => {
   console.log('[ChatRoom] 元件卸載')
-  // chatStore.disconnect() // 註解掉以保持全域連線
 })
 
 // --- 計算屬性 ---
@@ -126,7 +121,6 @@ const handleSendMessage = () => {
   messageInput.value = '';
 };
 
-// ★★★ [輸入中提示] 處理輸入事件 ★★★
 const handleTyping = () => {
   const now = Date.now();
   if (now - lastTypingTime > 2000) {
@@ -136,12 +130,10 @@ const handleTyping = () => {
   }
 };
 
-// ★★★ [Mobile Fix] 返回列表方法 ★★★
 const handleBackToList = () => {
   activeChatUser.value = null;
 };
 
-// ★★★ [智慧捲動] 捲動事件監聽：判斷是否在底部 ★★★
 const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   const wrap = scrollbarRef.value?.wrapRef; 
   if (!wrap) return;
@@ -157,7 +149,6 @@ const onScroll = ({ scrollTop }: { scrollTop: number }) => {
   }
 };
 
-// ★★★ [智慧捲動] 捲動到底部函式 (支援平滑捲動) ★★★
 const scrollToBottom = (force: boolean = false) => {
   nextTick(() => {
     const wrap = scrollbarRef.value?.wrapRef;
@@ -171,9 +162,6 @@ const scrollToBottom = (force: boolean = false) => {
   });
 };
 
-// ★★★ [Global Call] 移除 Watchers (搬去 App.vue) ★★★
-
-// ★★★ [智慧捲動] 智慧監聽訊息變化 ★★★
 watch(
   () => chatStore.messages.length, 
   async (newLen, oldLen) => {
@@ -234,19 +222,12 @@ watch(
                 >
                   {{ (user.name || user.username || '?').charAt(0).toUpperCase() }}
                 </el-avatar>
-                <span 
-                  v-if="chatStore.onlineUsers.has(user.username || user.name)" 
-                  class="online-dot"
-                ></span>
               </div>
             </el-badge>
             
             <div class="contact-info">
               <div class="contact-top">
                 <span class="contact-name">{{ user.name || user.username }}</span>
-                <span class="contact-time" :style="{ color: chatStore.onlineUsers.has(user.username || user.name) ? '#67c23a' : '' }">
-                   {{ chatStore.onlineUsers.has(user.username || user.name) ? '線上' : '' }}
-                </span>
               </div>
               <div class="contact-preview">
                 <span v-if="chatStore.typingUsers.has(user.username || user.name)" style="color: #409eff;">
@@ -272,12 +253,6 @@ watch(
             <span class="header-status typing" v-if="chatStore.typingUsers.has(activeChatUser.username || activeChatUser.name)">
               正在輸入...
             </span>
-            <span class="header-status" v-else-if="chatStore.onlineUsers.has(activeChatUser.username || activeChatUser.name)">
-              線上
-            </span>
-            <span class="header-status" v-else style="background: #f4f4f5; color: #909399;">
-              離線
-            </span>
           </div>
           
           <div class="header-actions">
@@ -301,9 +276,38 @@ watch(
               >
                 <div 
                     v-if="msg.type === 'CALL_START' || msg.type === 'CALL_END'" 
-                    class="system-message"
+                    class="message-row"
+                    :class="{ 'message-mine': msg.sender === userStore.username }"
                 >
-                    <span>{{ msg.content }} - {{ msg.time || '剛剛' }}</span>
+                    <el-avatar 
+                        v-if="msg.sender !== userStore.username"
+                        :size="36" 
+                        class="msg-avatar"
+                        style="background-color: var(--el-color-primary);"
+                    >
+                        {{ msg.sender.charAt(0).toUpperCase() }}
+                    </el-avatar>
+
+                    <div class="message-content-wrapper">
+                         <div class="sender-name" v-if="msg.sender !== userStore.username">{{ msg.sender }}</div>
+                        
+                        <div class="bubble-container">
+                            <div class="call-bubble">
+                                <div class="call-icon-wrapper" :class="{ 'missed': msg.content === '未接來電' || msg.content === '取消通話' }">
+                                    <el-icon><PhoneFilled /></el-icon>
+                                </div>
+                                <div class="call-text">
+                                    <div class="call-title">{{ msg.content }}</div>
+                                </div>
+                            </div>
+                            <span class="msg-time">{{ formatTime(msg.time) }}</span>
+                        </div>
+
+                        <div v-if="msg.sender === userStore.username" class="message-status">
+                            <span v-if="msg.read" class="read-text">已讀</span>
+                            <span v-else class="unread-text">送達</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div 
@@ -321,16 +325,19 @@ watch(
                     </el-avatar>
 
                     <div class="message-content-wrapper">
-                    <div class="sender-name" v-if="msg.sender !== userStore.username">
-                        {{ msg.sender }}
-                    </div>
-                    <div class="bubble">
-                        {{ msg.content }}
-                    </div>
-                    <div v-if="msg.sender === userStore.username" class="message-status">
-                        <span v-if="msg.read" class="read-text">已讀</span>
-                        <span v-else class="unread-text">送達</span>
-                    </div>
+                        <div class="sender-name" v-if="msg.sender !== userStore.username">
+                            {{ msg.sender }}
+                        </div>
+                        
+                        <div class="bubble-container">
+                            <div class="bubble">{{ msg.content }}</div>
+                            <span class="msg-time">{{ formatTime(msg.time) }}</span>
+                        </div>
+
+                        <div v-if="msg.sender === userStore.username" class="message-status">
+                            <span v-if="msg.read" class="read-text">已讀</span>
+                            <span v-else class="unread-text">送達</span>
+                        </div>
                     </div>
                 </div>
               </div>
@@ -397,19 +404,6 @@ watch(
 .avatar-wrapper {
   position: relative;
   display: inline-block;
-}
-
-.online-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 10px;
-  height: 10px;
-  background-color: #67c23a; 
-  border: 2px solid #ffffff; 
-  border-radius: 50%;
-  z-index: 10;
-  box-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 
 /* 1. 外框容器 */
@@ -562,12 +556,31 @@ watch(
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   word-wrap: break-word;
   white-space: pre-wrap;
+  max-width: 100%;
 }
 
 .message-mine .bubble {
   background-color: #95ec69; 
   color: #000000; 
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* ★★★ [Line-like UX] 氣泡容器與時間 ★★★ */
+.bubble-container {
+  display: flex;
+  align-items: flex-end; /* 時間靠底對齊 */
+  gap: 6px;
+}
+
+.message-mine .bubble-container {
+  flex-direction: row-reverse; /* 自己發的訊息，時間在氣泡左邊 */
+}
+
+.msg-time {
+  font-size: 11px;
+  color: #909399;
+  white-space: nowrap;
+  margin-bottom: 2px;
 }
 
 .no-message-tip, .empty-state { color: #909399; }
@@ -599,6 +612,7 @@ watch(
   font-size: 11px;
   margin-top: 2px;
   margin-right: 2px;
+  /* 讓狀態顯示在時間的下方，或你可以選擇與時間併排，這裡採取下方比較整齊 */
 }
 .read-text { color: #67c23a; } /* 綠色已讀 */
 .unread-text { color: #909399; } /* 灰色送達 */
@@ -654,6 +668,76 @@ watch(
     padding: 2px 6px;
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+}
+
+/* ★★★ [Line-like Call UX] 通話氣泡樣式 ★★★ */
+.call-bubble {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background-color: #ffffff; 
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  min-width: 140px;
+}
+
+.message-mine .call-bubble {
+    background-color: #ffffff; 
+}
+
+.call-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #f0f2f5; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #606266; 
+  
+  &.missed {
+    color: #f56c6c; 
+    background-color: #fef0f0;
+  }
+}
+
+.call-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.call-title {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
+}
+
+.contact-list { flex: 1; overflow: hidden; }
+.contact-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.message-list { padding: 0 24px; }
+.message-row { display: flex; margin-bottom: 20px; align-items: flex-start; }
+.message-mine { flex-direction: row-reverse; }
+.message-mine .msg-avatar { margin-left: 12px; margin-right: 0; }
+.message-mine .message-content-wrapper { align-items: flex-end; }
+.message-content-wrapper { display: flex; flex-direction: column; max-width: 70%; }
+.input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+.avatar-badge {
+  display: flex;
+  align-items: center;
+  position: relative;
+  
+  :deep(.el-badge__content) {
+    right: 5px; 
+    top: 5px;
+    z-index: 10;
+    
+    border: 2px solid #fff; 
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
+    
+    transform: translateY(-50%) translateX(50%);
   }
 }
 
@@ -738,32 +822,20 @@ html.dark {
     background-color: #333;
     color: #a3a6ad;
   }
-}
 
-.contact-list { flex: 1; overflow: hidden; }
-.contact-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.message-list { padding: 0 24px; }
-.message-row { display: flex; margin-bottom: 20px; align-items: flex-start; }
-.message-mine { flex-direction: row-reverse; }
-.message-mine .msg-avatar { margin-left: 12px; margin-right: 0; }
-.message-mine .message-content-wrapper { align-items: flex-end; }
-.message-content-wrapper { display: flex; flex-direction: column; max-width: 70%; }
-.input-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-
-.avatar-badge {
-  display: flex;
-  align-items: center;
-  position: relative;
-  
-  :deep(.el-badge__content) {
-    right: 5px; 
-    top: 5px;
-    z-index: 10;
-    
-    border: 2px solid #fff; 
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
-    
-    transform: translateY(-50%) translateX(50%);
+  /* Call Bubble Dark Mode */
+  .call-bubble {
+    background-color: #2b2b2b;
+    border: 1px solid #4c4d4f;
   }
+  .call-icon-wrapper {
+    background-color: #363637;
+    color: #a3a6ad;
+    &.missed { 
+        color: #f56c6c; 
+        background-color: #4c2b2b; 
+    }
+  }
+  .call-title { color: #e5eaf3; }
 }
 </style>
