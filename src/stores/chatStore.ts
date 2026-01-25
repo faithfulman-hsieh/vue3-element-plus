@@ -36,7 +36,7 @@ export const useChatStore = defineStore('chat', () => {
   
   // ★★★ [Line-like Call UX] 狀態追蹤 ★★★
   const isCallEstablished = ref(false)
-  const callStartTime = ref<number>(0) // 新增：紀錄通話開始時間點
+  const callStartTime = ref<number>(0) 
 
   // ★★★ [Line-like Call UX] 格式化通話時長 (例如 65秒 -> 1:05) ★★★
   const formatDuration = (ms: number): string => {
@@ -57,10 +57,8 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // ★★★ [Line-like] 修改：取得「所有使用者」並視為可聯繫 ★★★
   const fetchOnlineUsers = async () => {
     try {
-      // 呼叫 getUsers 取得全站使用者
       const res = await userApi.getUsers()
       if (res.data && Array.isArray(res.data)) {
         res.data.forEach((user: any) => {
@@ -273,9 +271,6 @@ export const useChatStore = defineStore('chat', () => {
             destination: '/app/chat.sendPrivateMessage',
             body: JSON.stringify(msg)
         })
-        
-        // ★★★ [Fix] 移除手動 push，避免自己看到兩條訊息 ★★★
-        // messages.value.push(msg as ChatMessage)
     }
   }
 
@@ -316,7 +311,6 @@ export const useChatStore = defineStore('chat', () => {
     const { sender, offerData } = incomingCall.value
     currentCallTarget.value = sender 
     
-    // ★★★ [Line-like Call UX] 接通瞬間，記錄開始時間 ★★★
     isCallEstablished.value = true
     callStartTime.value = Date.now()
 
@@ -334,8 +328,8 @@ export const useChatStore = defineStore('chat', () => {
         data: JSON.stringify(answer)
     })
     
-    // 發送「通話已接聽」
-    sendCallRecord('CALL_START', '通話已接聽')
+    // ★★★ [Line-like Call UX] 修正：移除「通話已接聽」氣泡，保留通話結束時的時長氣泡即可 ★★★
+    // sendCallRecord('CALL_START', '通話已接聽')
     incomingCall.value = null
   }
 
@@ -366,7 +360,6 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
     else if (msg.type === 'ANSWER') {
-        // ★★★ [Line-like Call UX] 對方接聽，我也要記錄開始時間 ★★★
         isCallEstablished.value = true
         callStartTime.value = Date.now()
 
@@ -397,12 +390,13 @@ export const useChatStore = defineStore('chat', () => {
   const closeCall = (notify: boolean = true) => {
     if (peerConnection.value) {
         if (notify && currentCallTarget.value) {
-            // ★★★ [Line-like Call UX] 計算時長或顯示取消 ★★★
+            // ★★★ [Line-like Call UX] 修正：只回傳時間字串，讓 UI 決定排版 ★★★
             let msgContent = '取消通話'
             
             if (isCallEstablished.value && callStartTime.value > 0) {
                 const durationMs = Date.now() - callStartTime.value
-                msgContent = `通話時間 ${formatDuration(durationMs)}`
+                // 這裡只回傳時間 (e.g. "0:04")，不帶 "通話時間" 字樣
+                msgContent = formatDuration(durationMs)
             }
 
             sendCallRecord('CALL_END', msgContent)
@@ -425,7 +419,6 @@ export const useChatStore = defineStore('chat', () => {
     currentCallTarget.value = ''
     candidateQueue.value = [] 
     incomingCall.value = null
-    // Reset status
     isCallEstablished.value = false
     callStartTime.value = 0
   }

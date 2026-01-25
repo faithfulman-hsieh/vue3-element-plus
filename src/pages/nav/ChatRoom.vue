@@ -28,7 +28,7 @@ let lastTypingTime = 0;
 const formatTime = (isoString?: string) => {
   if (!isoString) return '';
   const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }); // 會產出 "上午 10:00"
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
 // --- 載入資料 ---
@@ -289,15 +289,18 @@ watch(
                     </el-avatar>
 
                     <div class="message-content-wrapper">
-                         <div class="sender-name" v-if="msg.sender !== userStore.username">{{ msg.sender }}</div>
-                        
-                        <div class="bubble-container">
+                         <div class="bubble-container">
                             <div class="call-bubble">
                                 <div class="call-icon-wrapper" :class="{ 'missed': msg.content === '未接來電' || msg.content === '取消通話' }">
                                     <el-icon><PhoneFilled /></el-icon>
                                 </div>
                                 <div class="call-text">
-                                    <div class="call-title">{{ msg.content }}</div>
+                                    <div class="call-title">
+                                      {{ (msg.content === '未接來電' || msg.content === '取消通話') ? msg.content : '通話時間' }}
+                                    </div>
+                                    <div class="call-duration" v-if="msg.content !== '未接來電' && msg.content !== '取消通話'">
+                                      {{ msg.content }}
+                                    </div>
                                 </div>
                             </div>
                             <span class="msg-time">{{ formatTime(msg.time) }}</span>
@@ -325,10 +328,6 @@ watch(
                     </el-avatar>
 
                     <div class="message-content-wrapper">
-                        <div class="sender-name" v-if="msg.sender !== userStore.username">
-                            {{ msg.sender }}
-                        </div>
-                        
                         <div class="bubble-container">
                             <div class="bubble">{{ msg.content }}</div>
                             <span class="msg-time">{{ formatTime(msg.time) }}</span>
@@ -612,7 +611,7 @@ watch(
   font-size: 11px;
   margin-top: 2px;
   margin-right: 2px;
-  /* 讓狀態顯示在時間的下方，或你可以選擇與時間併排，這裡採取下方比較整齊 */
+  /* 讓狀態顯示在時間的下方 */
 }
 .read-text { color: #67c23a; } /* 綠色已讀 */
 .unread-text { color: #909399; } /* 灰色送達 */
@@ -712,6 +711,18 @@ watch(
   font-size: 14px;
   color: #303133;
   font-weight: 500;
+}
+
+/* ★★★ [Line-like UX] 小字體時間長度 ★★★ */
+.call-duration {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.call-time {
+    font-size: 11px;
+    color: #909399;
 }
 
 .contact-list { flex: 1; overflow: hidden; }
