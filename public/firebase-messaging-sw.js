@@ -74,3 +74,75 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+
+// public/firebase-messaging-sw.js
+
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
+
+// 1. 初始化 Firebase (請確保這裡的 Config 與 src/utils/firebase.ts 一致)
+// 注意：Service Worker 無法讀取 .env 變數，所以這裡通常需要硬編碼 (Hardcode)
+// 如果您之前的檔案裡已經有填好的 Config，請保留您的 Config，只替換下方的 messaging 邏輯
+// 1. 初始化 Firebase (填入您的 Config)
+const firebaseConfig = {
+  apiKey: "AIzaSyDE8QenM05aEXUhKi890IJgLPBuuYNBmR4",
+  authDomain: "jproject-push.firebaseapp.com",
+  projectId: "jproject-push",
+  storageBucket: "jproject-push.firebasestorage.app",
+  messagingSenderId: "154327784476",
+  appId: "1:154327784476:web:54e43ba1e64174782993d9"
+};
+
+// 避免重複初始化
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage(function(payload) {
+  console.log('[firebase-messaging-sw.js] 收到背景訊息: ', payload);
+
+  const notificationTitle = payload.data.title || '新通知';
+  const notificationOptions = {
+    body: payload.data.body || '您有一則新訊息',
+    icon: '/favicon.ico',
+    
+    // ★★★ 震動設定 ★★★
+    vibrate: [200, 100, 200], 
+    
+    // ★★★ 關鍵修正 1: 確保每次都視為新通知 ★★★
+    // 方法 A (推薦): 使用時間戳記當 Tag，保證每則都是新的
+    tag: 'msg-' + Date.now(), 
+    
+    // 方法 B (如果你想合併通知但又要震動): 
+    // tag: 'chat-message',
+    // renotify: true,  <-- 加上這行，就會強制重新震動
+    
+    // ★★★ 關鍵修正 2: 互動設定 ★★★
+    requireInteraction: true, // 需點擊才消失
+    
+    data: payload.data
+  };
+
+  return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  console.log('[firebase-messaging-sw.js] 通知被點擊');
+  event.notification.close();
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
+        if (client.url.indexOf('/') !== -1 && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
+});
