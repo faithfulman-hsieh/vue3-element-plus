@@ -45,9 +45,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../../stores/userStore';
-import { authApi, userApi } from '../../api/client'; // ★★★ [FCM] 補上 userApi ★★★
-import { ElMessage } from 'element-plus'; 
+import { authApi, userApi } from '../../api/client';
+import { ElMessage, ElMessageBox } from 'element-plus'; // ★★★ [FCM] 引入 ElMessageBox ★★★
 import type { AuthRequest } from '../../api/models';
+import { initFirebaseMessaging } from '../../utils/firebase'; // ★★★ [FCM] 引入初始化函式 ★★★
 
 const form = ref<AuthRequest>({
   username: '',
@@ -59,7 +60,7 @@ const userStore = useUserStore();
 
 const handleSubmit = async () => {
   sessionStorage.removeItem('jwtToken');
-  sessionStorage.removeItem('username'); // 確保舊的 username 也被清除
+  sessionStorage.removeItem('username');
   loading.value = true;
 
   try {
@@ -70,15 +71,48 @@ const handleSubmit = async () => {
       // 修改：將使用者輸入的帳號傳入 login 方法
       userStore.login(form.value.username);
 
-      // ★★★ [FCM Token Upload] 登入成功後，檢查並上傳 Token ★★★
-      const cachedToken = sessionStorage.getItem('fcmToken');
-      if (cachedToken) {
-          console.log('[LoginView] 偵測到 FCM Token，正在背景上傳...');
-          // 不用 await，讓它在背景跑，不卡登入跳轉
-          userApi.updateFcmToken(cachedToken)
-              .then(() => console.log('[LoginView] FCM Token 上傳成功'))
-              .catch((err: any) => console.error('[LoginView] FCM Token 上傳失敗', err));
+      // ★★★ [FCM Logic Start] 登入成功後的權限詢問與 Token 上傳 ★★★
+      
+      // 1. iOS/PWA 權限詢問：利用確認視窗創造「使用者手勢」
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          await ElMessageBox.confirm(
+            '為了能即時收到來電與訊息通知，請允許通知權限。',
+            '登入成功',
+            {
+              confirmButtonText: '開啟通知 (建議)',
+              cancelButtonText: '稍後再說',
+              type: 'info',
+              center: true,
+              showClose: false,
+              closeOnClickModal: false
+            }
+          );
+          // 使用者點擊「開啟」，觸發初始化
+          await initFirebaseMessaging();
+          ElMessage.success('通知已啟用');
+        } catch (e) {
+          // 使用者拒絕或點稍後
+          console.log('使用者暫不開啟通知');
+        }
+      } else if (Notification.permission === 'granted') {
+         // 已經有權限，直接初始化確保 Token 是新的
+         initFirebaseMessaging().catch(err => console.error('FCM init error', err));
       }
+
+      // 2. 上傳 Token (無論是剛拿到的還是快取舊的)
+      // 給一點時間讓 initFirebaseMessaging 寫入 sessionStorage
+      setTimeout(() => {
+          const currentToken = sessionStorage.getItem('fcmToken');
+          if (currentToken) {
+              console.log('[LoginView] 準備上傳 FCM Token:', currentToken.substring(0, 10) + '...');
+              userApi.updateFcmToken(currentToken)
+                  .then(() => console.log('[LoginView] FCM Token 上傳成功'))
+                  .catch((err: any) => console.error('[LoginView] FCM Token 上傳失敗', err));
+          }
+      }, 1000); // 延遲 1 秒確保 Token 已就緒
+
+      // ★★★ [FCM Logic End] ★★★
 
       ElMessage.success('登入成功，歡迎回來！');
       router.push('/');
