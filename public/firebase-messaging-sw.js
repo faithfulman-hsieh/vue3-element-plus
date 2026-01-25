@@ -1,8 +1,9 @@
-// ★★★ [PWA + Push] Firebase Service Worker ★★★
-// Service Worker 運行在獨立執行緒，必須使用 importScripts 引入 SDK
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
+// 1. 初始化 Firebase (請確保這裡的 Config 與 src/utils/firebase.ts 一致)
+// 注意：Service Worker 無法讀取 .env 變數，所以這裡通常需要硬編碼 (Hardcode)
+// 如果您之前的檔案裡已經有填好的 Config，請保留您的 Config，只替換下方的 messaging 邏輯
 // 1. 初始化 Firebase (填入您的 Config)
 firebase.initializeApp({
   apiKey: "AIzaSyDE8QenM05aEXUhKi890IJgLPBuuYNBmR4",
@@ -13,44 +14,60 @@ firebase.initializeApp({
   appId: "1:154327784476:web:54e43ba1e64174782993d9"
 });
 
-// 2. 取得 Messaging 實例
 const messaging = firebase.messaging();
 
-// 3. 設定背景訊息處理器 (當網頁被關閉或在背景時觸發)
+// 2. 設定背景訊息處理器 (當瀏覽器在背景或關閉時觸發)
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] 收到背景訊息: ', payload);
-  
-  // 自訂通知內容
-  const notificationTitle = payload.notification?.title || '新通知';
+
+  // ★★★ [Line-like Fix] 從 data 讀取內容 (因為後端改成了 Data Message) ★★★
+  // 如果後端傳的是 Notification Message，這裡會是 payload.notification
+  // 但為了控制震動，我們使用 payload.data
+  const notificationTitle = payload.data.title || '新通知';
   const notificationOptions = {
-    body: payload.notification?.body || '您有一則新訊息',
-    icon: '/favicon.ico', // 請確保這個路徑有圖檔，或改為 '/pwa-192x192.png'
-    vibrate: [200, 100, 200], // 震動模式 (Android 支援)
-    data: payload.data, // 傳遞額外資料
-    // 加入這個讓點擊通知時能聚焦視窗
-    requireInteraction: true
+    body: payload.data.body || '您有一則新訊息',
+    icon: '/favicon.ico', // 通知圖示，確保 public 資料夾有此檔案
+    
+    // ★★★ [關鍵] 強制震動與互動設定 ★★★
+    // 震動模式：[震動, 停止, 震動, 停止, 震動] (單位 ms)
+    // 注意：震動功能在某些 Android 版本或靜音模式下可能會被系統覆蓋
+    vibrate: [200, 100, 200, 100, 200], 
+    
+    // 強制通知不自動消失，直到使用者點擊或滑掉 (類似 Line 的行為)
+    // 這是解決 "不會跳出小框框" 的關鍵
+    requireInteraction: true,
+    
+    // 將資料傳遞給點擊事件使用
+    data: payload.data,
+    
+    // 設定標籤，相同 tag 的通知會覆蓋舊的 (避免通知欄爆炸)
+    // 如果想要每條都顯示，可以移除這行
+    tag: 'chat-message' 
   };
 
   // 顯示系統通知
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  // 這會觸發作業系統層級的通知 (橫幅/震動)
+  return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// 4. 監聽通知點擊事件
+// 3. 監聽通知點擊事件
 self.addEventListener('notificationclick', function(event) {
   console.log('[firebase-messaging-sw.js] 通知被點擊');
+  
+  // 點擊後關閉通知
   event.notification.close();
 
-  // 點擊後打開或聚焦到 App 頁面
+  // 嘗試打開或聚焦視窗
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // 如果已經有打開的視窗，就聚焦
+      // 1. 如果使用者已經打開了聊天室分頁，直接聚焦該分頁
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if (client.url.indexOf('/') !== -1 && 'focus' in client) {
           return client.focus();
         }
       }
-      // 否則打開新視窗
+      // 2. 如果沒有打開，則開啟新視窗 (回到首頁)
       if (clients.openWindow) {
         return clients.openWindow('/');
       }
