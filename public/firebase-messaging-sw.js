@@ -1,7 +1,9 @@
+// public/firebase-messaging-sw.js
+
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// ★★★ 請務必填回您的 Firebase Config ★★★
+// ★★★ 請務必確認這裡的 Firebase Config 與您 src/utils/firebase.ts 內的一致 ★★★
 const firebaseConfig = {
   apiKey: "AIzaSyDE8QenM05aEXUhKi890IJgLPBuuYNBmR4",
   authDomain: "jproject-push.firebaseapp.com",
@@ -11,12 +13,14 @@ const firebaseConfig = {
   appId: "1:154327784476:web:54e43ba1e64174782993d9"
 };
 
+// 避免重複初始化
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
 const messaging = firebase.messaging();
 
+// 背景訊息處理器 (App 關閉或在背景時觸發)
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] 收到背景訊息: ', payload);
 
@@ -25,7 +29,7 @@ messaging.onBackgroundMessage(function(payload) {
   const sender = data.sender || 'system';
   
   // ============================================
-  // 1. 一般訊息設定 (您覺得好的部分)
+  // 1. 一般訊息設定
   // ============================================
   // 震動: 短促有力 (震動 200ms, 停 100ms, 震動 200ms)
   let vibratePattern = [200, 100, 200];
@@ -37,21 +41,24 @@ messaging.onBackgroundMessage(function(payload) {
   let renotify = true; 
 
   // ============================================
-  // 2. 通話特殊邏輯 (您希望持續震動的部分)
+  // 2. 通話特殊邏輯 (持續震動增強版)
   // ============================================
   
-if (data.type === 'OFFER') {
-    // [調整] 改用短促脈衝：震動 500ms，停 300ms，重複多次
-    // 這種頻率比較像傳統電話聲，也比較不容易被系統切斷
+  if (data.type === 'OFFER') {
+    // [情況：來電邀請]
+    // ★★★ 修改點：使用迴圈生成「超長」且「強烈」的震動模式 ★★★
+    // 總長度約 90 秒 (30次 * 3秒)，感覺上就像不會停一樣
     vibratePattern = [];
-    for (let i = 0; i < 40; i++) { // 增加次數
-        vibratePattern.push(500); // 震動 0.5 秒
-        vibratePattern.push(300); // 停 0.3 秒
+    for (let i = 0; i < 30; i++) {
+        vibratePattern.push(2000); // 震動 2秒 (加長)
+        vibratePattern.push(1000); // 停 1秒
     }
     
+    // 使用專屬的 Tag，這很重要！
+    // 這樣之後的 HANGUP 訊息才能精準地「找到並覆蓋」這一則正在震動的通知
     tag = 'incoming-call-' + sender; 
     renotify = true; 
-  }
+  } 
   else if (data.type === 'HANGUP') {
     // [情況：對方掛斷 / 取消]
     // 這裡我們發送一個「極短震動」的通知。
@@ -77,25 +84,27 @@ if (data.type === 'OFFER') {
     data: data
   };
 
+  // 顯示通知 (觸發作業系統層級行為)
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
+// 通知識別點擊事件
 self.addEventListener('notificationclick', function(event) {
   console.log('[firebase-messaging-sw.js] 通知被點擊');
   
-  // 點擊後關閉通知 (這也會停止震動)
+  // 點擊後關閉通知 (也會停止震動)
   event.notification.close();
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // 嘗試聚焦已經打開的分頁
+      // 1. 如果已經打開，聚焦該分頁
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if (client.url.indexOf('/') !== -1 && 'focus' in client) {
           return client.focus();
         }
       }
-      // 否則開啟新視窗
+      // 2. 如果沒打開，開啟新視窗
       if (clients.openWindow) {
         return clients.openWindow('/');
       }
