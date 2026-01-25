@@ -1,8 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// ★★★ 重要：請填回您原本的 Firebase Config 數值 ★★★
-// Service Worker 無法讀取 .env，必須在此寫死
+// ★★★ 請務必填回您的 Firebase Config ★★★
 const firebaseConfig = {
   apiKey: "AIzaSyDE8QenM05aEXUhKi890IJgLPBuuYNBmR4",
   authDomain: "jproject-push.firebaseapp.com",
@@ -12,7 +11,6 @@ const firebaseConfig = {
   appId: "1:154327784476:web:54e43ba1e64174782993d9"
 };
 
-// 避免重複初始化
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
@@ -26,39 +24,48 @@ messaging.onBackgroundMessage(function(payload) {
   const notificationTitle = data.title || '新通知';
   const sender = data.sender || 'system';
   
-  // 預設設定 (一般訊息)
-  // 震動: 短震動
+  // ============================================
+  // 1. 一般訊息設定 (您覺得好的部分)
+  // ============================================
+  // 震動: 短促有力 (震動 200ms, 停 100ms, 震動 200ms)
   let vibratePattern = [200, 100, 200];
   
-  // ★★★ 關鍵修正 1: 標籤策略 ★★★
-  // 使用 "chat-user-" + sender。
-  // 這樣來自同一人的訊息會合併顯示(更新內容)，且配合 renotify: true 會再次震動。
-  // 這解決了 "第二則訊息不震動" 的問題 (因為系統不會把它當作 spam，而是當作更新)。
+  // Tag: 使用 "chat-user-" + sender
+  // 這樣來自同一人的訊息會合併顯示在同一格通知中 (避免洗版)，
+  // 但因為 renotify: true，每一則新訊息都會強制手機「再次震動」！
   let tag = 'chat-user-' + sender; 
-  let renotify = true; // 強制再次震動
+  let renotify = true; 
 
-  // ★★★ [Line-like Call] 來電與掛斷邏輯 ★★★
+  // ============================================
+  // 2. 通話特殊邏輯 (您希望持續震動的部分)
+  // ============================================
   
   if (data.type === 'OFFER') {
-    // [情況 1：來電中]
-    // 解決 "不會持續震動"：我們必須給一個超長的震動陣列 (Service Worker 不支援 loop)
-    // 這裡定義約 40 秒的響鈴震動 (震動 1s, 停 0.5s ...)
-    vibratePattern = [];
-    for (let i = 0; i < 30; i++) {
-        vibratePattern.push(1000); // 震動 1秒
-        vibratePattern.push(500);  // 停 0.5秒
-    }
+    // [情況：來電邀請]
+    // 我們手動建立一個超長的震動陣列，模擬持續響鈴約 45 秒。
+    // 瀏覽器不支援無限 loop，所以用這種暴力法最穩。
+    vibratePattern = [
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, // 10秒
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, // 20秒
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, // 30秒
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, // 40秒
+      1000, 1000, 1000, 1000, 1000
+    ];
     
-    // 使用專屬 Tag，方便 HANGUP 覆蓋
+    // 使用專屬的 Tag，這很重要！
+    // 這樣之後的 HANGUP 訊息才能精準地「找到並覆蓋」這一則正在震動的通知
     tag = 'incoming-call-' + sender; 
     renotify = true; 
   } 
   else if (data.type === 'HANGUP') {
-    // [情況 2：對方掛斷 / 停止響鈴]
-    // 解決 "取消沒有訊息"：使用與 OFFER 相同的 Tag，發送一個 "短震動" 通知來覆蓋舊的
+    // [情況：對方掛斷 / 取消]
+    // 這裡我們發送一個「極短震動」的通知。
+    // 關鍵在於 tag 與上面一模一樣 ('incoming-call-' + sender)。
+    // 瀏覽器會用這則新通知「取代」舊的。
+    // 因為新通知震動很短，舊的長震動就會被迫立刻停止！
     vibratePattern = [200, 100]; 
-    tag = 'incoming-call-' + sender; // 必須完全一樣才能覆蓋
-    renotify = true; // 強制覆蓋，這會停止舊的長震動，改為短震動
+    tag = 'incoming-call-' + sender; 
+    renotify = true; 
   }
 
   const notificationOptions = {
@@ -67,9 +74,9 @@ messaging.onBackgroundMessage(function(payload) {
     
     vibrate: vibratePattern,
     tag: tag,
-    renotify: renotify, // 這是關鍵！
+    renotify: renotify, // 這是「每次都震動」的關鍵
     
-    // 強制通知常駐 (需點擊才消失)
+    // 強制通知不自動消失 (類似 Line)，需使用者手動點擊或滑掉
     requireInteraction: true, 
     
     data: data
@@ -80,16 +87,20 @@ messaging.onBackgroundMessage(function(payload) {
 
 self.addEventListener('notificationclick', function(event) {
   console.log('[firebase-messaging-sw.js] 通知被點擊');
+  
+  // 點擊後關閉通知 (這也會停止震動)
   event.notification.close();
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // 嘗試聚焦已經打開的分頁
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if (client.url.indexOf('/') !== -1 && 'focus' in client) {
           return client.focus();
         }
       }
+      // 否則開啟新視窗
       if (clients.openWindow) {
         return clients.openWindow('/');
       }
