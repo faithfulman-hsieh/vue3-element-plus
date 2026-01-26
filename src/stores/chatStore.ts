@@ -46,6 +46,8 @@ export const useChatStore = defineStore('chat', () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  // ★★★ [移除] 舊的 forceH264 函式已移除，改用 setCodecPreferences ★★★
+
   const fetchHistory = async () => {
     try {
       const response = await chatApi.getPublicHistory()
@@ -235,30 +237,35 @@ export const useChatStore = defineStore('chat', () => {
     try {
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       
-      // ★★★ [Modern Fix] 使用 addTransceiver 並設定 Codec Preferences (解決黑屏) ★★★
+      // ★★★ [Modern Fix] 使用 addTransceiver 並設定 Codec Preferences (解決 Android->Mac 黑屏) ★★★
       if (localStream.value && peerConnection.value) {
           localStream.value.getTracks().forEach((track) => {
-            // 1. 使用 addTransceiver 來建立發送器 (比 addTrack 更穩定)
+            // 1. 使用 addTransceiver 來建立發送器 (比 addTrack 更穩定，支援 Codec 設定)
             const transceiver = peerConnection.value!.addTransceiver(track, { 
                 direction: 'sendrecv', 
                 streams: [localStream.value!] 
             });
 
-            // 2. 針對視訊軌道，嘗試設定 H.264 為優先編碼
+            // 2. 針對視訊軌道，使用標準 API 設定 H.264 為優先
             if (track.kind === 'video') {
-                if ('setCodecPreferences' in RTCRtpTransceiver.prototype && RTCRtpSender.getCapabilities) {
+                // 檢查瀏覽器是否支援此 API (Chrome Android 支援)
+                if ('setCodecPreferences' in transceiver && RTCRtpSender.getCapabilities) {
                     try {
-                        const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
-                        // 找出所有 H.264 的編碼 (iOS 與 Android 通用的關鍵)
-                        const h264Codecs = codecs.filter(c => c.mimeType === 'video/H264');
-                        const otherCodecs = codecs.filter(c => c.mimeType !== 'video/H264');
-                        
-                        if (h264Codecs.length > 0) {
-                            // 將 H.264 排在最前面，其他的排在後面
-                            transceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
-                            console.log('[WebRTC] 成功設定 H.264 為優先編碼');
-                        } else {
-                            console.warn('[WebRTC] 瀏覽器不支援 H.264，維持預設');
+                        const capabilities = RTCRtpSender.getCapabilities('video');
+                        if (capabilities) {
+                            const codecs = capabilities.codecs;
+                            // 找出所有 H.264 的編碼 (iOS 與 Android 通用的關鍵)
+                            const h264Codecs = codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
+                            const otherCodecs = codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264');
+                            
+                            if (h264Codecs.length > 0) {
+                                // 將 H.264 排在最前面，其他的排在後面
+                                const sortedCodecs = [...h264Codecs, ...otherCodecs];
+                                transceiver.setCodecPreferences(sortedCodecs);
+                                console.log('[WebRTC] 成功設定 H.264 為優先編碼');
+                            } else {
+                                console.warn('[WebRTC] 此瀏覽器不支援 H.264，將使用預設編碼');
+                            }
                         }
                     } catch (e) {
                         console.warn('[WebRTC] 設定編碼偏好失敗 (非致命錯誤):', e);
@@ -310,7 +317,7 @@ export const useChatStore = defineStore('chat', () => {
     
     if (!peerConnection.value) return;
 
-    // ★★★ [Safe] 移除手動修改 SDP 的邏輯，使用瀏覽器原生協商 ★★★
+    // ★★★ [Safe] 移除手動修改 SDP 的邏輯，使用瀏覽器原生協商 (已由 setCodecPreferences 處理) ★★★
     const offer = await peerConnection.value.createOffer()
     await peerConnection.value.setLocalDescription(offer)
     
