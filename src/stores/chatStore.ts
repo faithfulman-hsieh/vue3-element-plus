@@ -46,6 +46,46 @@ export const useChatStore = defineStore('chat', () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  // ★★★ [Fix H264] SDP 處理函式，強制優先使用 H264 編碼 ★★★
+  const forceH264 = (sdp: string) => {
+    const sdpLines = sdp.split('\r\n');
+    let mLineIndex = -1;
+    
+    // 1. 找到 video 描述行
+    for (let i = 0; i < sdpLines.length; i++) {
+        if (sdpLines[i].startsWith('m=video')) {
+            mLineIndex = i;
+            break;
+        }
+    }
+    
+    if (mLineIndex === -1) return sdp;
+
+    // 2. 找到所有 H264 的 Payload Type
+    const h264Pts: number[] = [];
+    sdpLines.forEach(line => {
+        if (line.startsWith('a=rtpmap:') && line.includes('H264/90000')) {
+            const parts = line.split(' ');
+            const ptStr = parts[0].substring(9);
+            const pt = parseInt(ptStr);
+            if (!isNaN(pt)) h264Pts.push(pt);
+        }
+    });
+
+    if (h264Pts.length === 0) return sdp;
+
+    // 3. 將 H264 移到最前面
+    const mLineParts = sdpLines[mLineIndex].split(' ');
+    const newMLineParts = [
+        ...mLineParts.slice(0, 3), 
+        ...h264Pts.map(pt => pt.toString()), 
+        ...mLineParts.slice(3).filter(pt => !h264Pts.includes(parseInt(pt))) 
+    ];
+    
+    sdpLines[mLineIndex] = newMLineParts.join(' ');
+    return sdpLines.join('\r\n');
+  }
+
   const fetchHistory = async () => {
     try {
       const response = await chatApi.getPublicHistory()
@@ -234,8 +274,14 @@ export const useChatStore = defineStore('chat', () => {
 
     try {
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      
+      // ★★★ [Fix H264] 改用 addTransceiver 確保雙向溝通 (對 iOS 很重要) ★★★
       localStream.value.getTracks().forEach((track) => {
-        peerConnection.value.addTrack(track, localStream.value)
+        // peerConnection.value.addTrack(track, localStream.value) // 原本的寫法
+        peerConnection.value.addTransceiver(track, { 
+            direction: 'sendrecv', 
+            streams: [localStream.value] 
+        });
       })
     } catch (e) {
       console.error('[WebRTC] 無法存取攝影機/麥克風', e)
@@ -279,6 +325,12 @@ export const useChatStore = defineStore('chat', () => {
     await initWebRTC()
     
     const offer = await peerConnection.value.createOffer()
+    
+    // ★★★ [Fix H264] 強制修改 SDP ★★★
+    if (offer.sdp) {
+        offer.sdp = forceH264(offer.sdp);
+    }
+
     await peerConnection.value.setLocalDescription(offer)
     
     console.log('[WebRTC] 發送 OFFER 給', targetUser)
@@ -319,6 +371,12 @@ export const useChatStore = defineStore('chat', () => {
     await processCandidateQueue()
     
     const answer = await peerConnection.value.createAnswer()
+    
+    // ★★★ [Fix H264] 強制修改 SDP ★★★
+    if (answer.sdp) {
+        answer.sdp = forceH264(answer.sdp);
+    }
+
     await peerConnection.value.setLocalDescription(answer)
     
     console.log('[WebRTC] 同意接聽，發送 ANSWER')

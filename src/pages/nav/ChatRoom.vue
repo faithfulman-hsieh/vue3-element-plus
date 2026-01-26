@@ -267,6 +267,28 @@ watch(
           </div>
         </div>
 
+        <div class="video-grid" v-if="chatStore.localStream || chatStore.remoteStream" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; background-color: #000; height: 240px;">
+            <div class="video-wrapper local" style="position: relative; width: 100%; height: 100%; background: #333; overflow: hidden;">
+                <video 
+                    autoplay 
+                    playsinline 
+                    muted 
+                    :srcObject="chatStore.localStream"
+                    style="width: 100%; height: 100%; object-fit: cover;"
+                ></video>
+                <div style="position: absolute; bottom: 8px; left: 8px; color: white; background: rgba(0,0,0,0.5); padding: 2px 8px; font-size: 12px;">我</div>
+            </div>
+            <div class="video-wrapper remote" style="position: relative; width: 100%; height: 100%; background: #333; overflow: hidden;">
+                <video 
+                    autoplay 
+                    playsinline 
+                    :srcObject="chatStore.remoteStream"
+                    style="width: 100%; height: 100%; object-fit: cover;"
+                ></video>
+                <div style="position: absolute; bottom: 8px; left: 8px; color: white; background: rgba(0,0,0,0.5); padding: 2px 8px; font-size: 12px;">對方</div>
+            </div>
+        </div>
+
         <div class="message-area message-scroll-container">
           <el-scrollbar ref="scrollbarRef" @scroll="onScroll">
             <div class="message-list">
