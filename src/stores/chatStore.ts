@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { Client, type Message } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { ElNotification } from 'element-plus'
-import { chatApi, userApi } from '../api/client' // ★★★ [Line-like] 引入 userApi ★★★
+import { chatApi, userApi } from '../api/client'
 
 interface ChatMessage {
   sender: string
@@ -27,7 +27,7 @@ export const useChatStore = defineStore('chat', () => {
   const typingTimeouts = new Map<string, any>()
 
   // WebRTC 相關狀態
-  const peerConnection = ref<any>(null) 
+  const peerConnection = ref<RTCPeerConnection | null>(null)
   const localStream = ref<MediaStream | null>(null)
   const remoteStream = ref<MediaStream | null>(null)
   const currentCallTarget = ref<string>('') 
@@ -44,46 +44,6 @@ export const useChatStore = defineStore('chat', () => {
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  // ★★★ [Fix H264] SDP 處理函式，強制優先使用 H264 編碼 ★★★
-  const forceH264 = (sdp: string) => {
-    const sdpLines = sdp.split('\r\n');
-    let mLineIndex = -1;
-    
-    // 1. 找到 video 描述行
-    for (let i = 0; i < sdpLines.length; i++) {
-        if (sdpLines[i].startsWith('m=video')) {
-            mLineIndex = i;
-            break;
-        }
-    }
-    
-    if (mLineIndex === -1) return sdp;
-
-    // 2. 找到所有 H264 的 Payload Type
-    const h264Pts: number[] = [];
-    sdpLines.forEach(line => {
-        if (line.startsWith('a=rtpmap:') && line.includes('H264/90000')) {
-            const parts = line.split(' ');
-            const ptStr = parts[0].substring(9);
-            const pt = parseInt(ptStr);
-            if (!isNaN(pt)) h264Pts.push(pt);
-        }
-    });
-
-    if (h264Pts.length === 0) return sdp;
-
-    // 3. 將 H264 移到最前面
-    const mLineParts = sdpLines[mLineIndex].split(' ');
-    const newMLineParts = [
-        ...mLineParts.slice(0, 3), 
-        ...h264Pts.map(pt => pt.toString()), 
-        ...mLineParts.slice(3).filter(pt => !h264Pts.includes(parseInt(pt))) 
-    ];
-    
-    sdpLines[mLineIndex] = newMLineParts.join(' ');
-    return sdpLines.join('\r\n');
   }
 
   const fetchHistory = async () => {
@@ -275,14 +235,38 @@ export const useChatStore = defineStore('chat', () => {
     try {
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       
-      // ★★★ [Fix H264] 改用 addTransceiver 確保雙向溝通 (對 iOS 很重要) ★★★
-      localStream.value.getTracks().forEach((track) => {
-        // peerConnection.value.addTrack(track, localStream.value) // 原本的寫法
-        peerConnection.value.addTransceiver(track, { 
-            direction: 'sendrecv', 
-            streams: [localStream.value] 
-        });
-      })
+      // ★★★ [Modern Fix] 使用 addTransceiver 並設定 Codec Preferences (解決黑屏) ★★★
+      if (localStream.value && peerConnection.value) {
+          localStream.value.getTracks().forEach((track) => {
+            // 1. 使用 addTransceiver 來建立發送器 (比 addTrack 更穩定)
+            const transceiver = peerConnection.value!.addTransceiver(track, { 
+                direction: 'sendrecv', 
+                streams: [localStream.value!] 
+            });
+
+            // 2. 針對視訊軌道，嘗試設定 H.264 為優先編碼
+            if (track.kind === 'video') {
+                if ('setCodecPreferences' in RTCRtpTransceiver.prototype && RTCRtpSender.getCapabilities) {
+                    try {
+                        const codecs = RTCRtpSender.getCapabilities('video')?.codecs || [];
+                        // 找出所有 H.264 的編碼 (iOS 與 Android 通用的關鍵)
+                        const h264Codecs = codecs.filter(c => c.mimeType === 'video/H264');
+                        const otherCodecs = codecs.filter(c => c.mimeType !== 'video/H264');
+                        
+                        if (h264Codecs.length > 0) {
+                            // 將 H.264 排在最前面，其他的排在後面
+                            transceiver.setCodecPreferences([...h264Codecs, ...otherCodecs]);
+                            console.log('[WebRTC] 成功設定 H.264 為優先編碼');
+                        } else {
+                            console.warn('[WebRTC] 瀏覽器不支援 H.264，維持預設');
+                        }
+                    } catch (e) {
+                        console.warn('[WebRTC] 設定編碼偏好失敗 (非致命錯誤):', e);
+                    }
+                }
+            }
+          })
+      }
     } catch (e) {
       console.error('[WebRTC] 無法存取攝影機/麥克風', e)
       ElNotification.error('無法存取攝影機或麥克風')
@@ -324,13 +308,10 @@ export const useChatStore = defineStore('chat', () => {
     currentCallTarget.value = targetUser
     await initWebRTC()
     
-    const offer = await peerConnection.value.createOffer()
-    
-    // ★★★ [Fix H264] 強制修改 SDP ★★★
-    if (offer.sdp) {
-        offer.sdp = forceH264(offer.sdp);
-    }
+    if (!peerConnection.value) return;
 
+    // ★★★ [Safe] 移除手動修改 SDP 的邏輯，使用瀏覽器原生協商 ★★★
+    const offer = await peerConnection.value.createOffer()
     await peerConnection.value.setLocalDescription(offer)
     
     console.log('[WebRTC] 發送 OFFER 給', targetUser)
@@ -367,16 +348,14 @@ export const useChatStore = defineStore('chat', () => {
     callStartTime.value = Date.now()
 
     await initWebRTC()
+    
+    if (!peerConnection.value) return;
+
     await peerConnection.value.setRemoteDescription(new RTCSessionDescription(offerData))
     await processCandidateQueue()
     
+    // ★★★ [Safe] 移除手動修改 SDP 的邏輯 ★★★
     const answer = await peerConnection.value.createAnswer()
-    
-    // ★★★ [Fix H264] 強制修改 SDP ★★★
-    if (answer.sdp) {
-        answer.sdp = forceH264(answer.sdp);
-    }
-
     await peerConnection.value.setLocalDescription(answer)
     
     console.log('[WebRTC] 同意接聽，發送 ANSWER')
@@ -386,8 +365,6 @@ export const useChatStore = defineStore('chat', () => {
         data: JSON.stringify(answer)
     })
     
-    // ★★★ [Line-like Call UX] 修正：移除「通話已接聽」氣泡，保留通話結束時的時長氣泡即可 ★★★
-    // sendCallRecord('CALL_START', '通話已接聽')
     incomingCall.value = null
   }
 
@@ -448,12 +425,10 @@ export const useChatStore = defineStore('chat', () => {
   const closeCall = (notify: boolean = true) => {
     if (peerConnection.value) {
         if (notify && currentCallTarget.value) {
-            // ★★★ [Line-like Call UX] 修正：只回傳時間字串，讓 UI 決定排版 ★★★
             let msgContent = '取消通話'
             
             if (isCallEstablished.value && callStartTime.value > 0) {
                 const durationMs = Date.now() - callStartTime.value
-                // 這裡只回傳時間 (e.g. "0:04")，不帶 "通話時間" 字樣
                 msgContent = formatDuration(durationMs)
             }
 
