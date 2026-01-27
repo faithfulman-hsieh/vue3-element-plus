@@ -34,11 +34,9 @@ export const useChatStore = defineStore('chat', () => {
   const candidateQueue = ref<RTCIceCandidateInit[]>([])
   const incomingCall = ref<{ sender: string, offerData: any } | null>(null)
   
-  // ★★★ [Line-like Call UX] 狀態追蹤 ★★★
   const isCallEstablished = ref(false)
   const callStartTime = ref<number>(0) 
 
-  // ★★★ [Line-like Call UX] 格式化通話時長 (例如 65秒 -> 1:05) ★★★
   const formatDuration = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000)
     const minutes = Math.floor(totalSeconds / 60)
@@ -46,7 +44,47 @@ export const useChatStore = defineStore('chat', () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
-  // ★★★ [移除] 舊的 forceH264 函式已移除，改用 setCodecPreferences ★★★
+  // ★★★ [Fix] 穩健版 SDP 修改函式：強制將指定編碼 (H264) 移至最前 ★★★
+  const setSDPCodecPreferences = (sdp: string, codec: string): string => {
+    const sdpLines = sdp.split('\r\n');
+    const mLineIndex = sdpLines.findIndex(line => line.startsWith('m=video'));
+    
+    if (mLineIndex === -1) return sdp;
+
+    // 1. 找出所有與 codec (e.g. "H264") 匹配的 Payload Types
+    const codecPts: string[] = [];
+    sdpLines.forEach(line => {
+      // 格式: a=rtpmap:<payload_type> <encoding_name>/<clock_rate>...
+      if (line.startsWith('a=rtpmap:')) {
+        const parts = line.split(' ');
+        if (parts.length >= 2 && parts[1].toUpperCase().includes(codec.toUpperCase())) {
+          // parts[0] 是 "a=rtpmap:100" -> 取出 "100"
+          const pt = parts[0].substring(9); 
+          codecPts.push(pt);
+        }
+      }
+    });
+
+    if (codecPts.length === 0) return sdp;
+
+    // 2. 修改 m=video 行
+    const mLine = sdpLines[mLineIndex];
+    const mParts = mLine.split(' ');
+    // mParts[0]=m=video, mParts[1]=port, mParts[2]=proto
+    const header = mParts.slice(0, 3);
+    const oldPts = mParts.slice(3);
+
+    // 3. 重新排序：H264 的 PT 放前面，其他的放後面，並移除重複
+    const newPts = [
+        ...codecPts,
+        ...oldPts.filter(pt => !codecPts.includes(pt))
+    ];
+
+    sdpLines[mLineIndex] = [...header, ...newPts].join(' ');
+    console.log(`[WebRTC] SDP Modified: Prioritized ${codec} (PTs: ${codecPts.join(',')})`);
+    
+    return sdpLines.join('\r\n');
+  };
 
   const fetchHistory = async () => {
     try {
@@ -104,19 +142,16 @@ export const useChatStore = defineStore('chat', () => {
 
   const connect = () => {
     if (stompClient.value) {
-      console.warn('[ChatStore] ⚠️ 偵測到殘留連線，正在清理舊連線以避免重複訂閱...')
       try {
         stompClient.value.deactivate()
-      } catch (e) {
-        console.error('清理舊連線失敗', e)
-      }
+      } catch (e) {}
       stompClient.value = null
       isConnected.value = false
     }
 
     const token = sessionStorage.getItem('jwtToken')
     if (!token) {
-        console.error('[ChatStore] ❌ 找不到 Token！請確認使用者是否已登入')
+        console.error('[ChatStore] ❌ 找不到 Token')
         return
     }
 
@@ -237,43 +272,12 @@ export const useChatStore = defineStore('chat', () => {
     try {
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       
-      // ★★★ [Modern Fix] 使用 addTransceiver 並設定 Codec Preferences (解決 Android->Mac 黑屏) ★★★
-      if (localStream.value && peerConnection.value) {
-          localStream.value.getTracks().forEach((track) => {
-            // 1. 使用 addTransceiver 來建立發送器 (比 addTrack 更穩定，支援 Codec 設定)
-            const transceiver = peerConnection.value!.addTransceiver(track, { 
-                direction: 'sendrecv', 
-                streams: [localStream.value!] 
-            });
-
-            // 2. 針對視訊軌道，使用標準 API 設定 H.264 為優先
-            if (track.kind === 'video') {
-                // 檢查瀏覽器是否支援此 API (Chrome Android 支援)
-                if ('setCodecPreferences' in transceiver && RTCRtpSender.getCapabilities) {
-                    try {
-                        const capabilities = RTCRtpSender.getCapabilities('video');
-                        if (capabilities) {
-                            const codecs = capabilities.codecs;
-                            // 找出所有 H.264 的編碼 (iOS 與 Android 通用的關鍵)
-                            const h264Codecs = codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
-                            const otherCodecs = codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264');
-                            
-                            if (h264Codecs.length > 0) {
-                                // 將 H.264 排在最前面，其他的排在後面
-                                const sortedCodecs = [...h264Codecs, ...otherCodecs];
-                                transceiver.setCodecPreferences(sortedCodecs);
-                                console.log('[WebRTC] 成功設定 H.264 為優先編碼');
-                            } else {
-                                console.warn('[WebRTC] 此瀏覽器不支援 H.264，將使用預設編碼');
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('[WebRTC] 設定編碼偏好失敗 (非致命錯誤):', e);
-                    }
-                }
-            }
-          })
-      }
+      // ★★★ [Revert] 改回傳統 addTrack，相容性最高 ★★★
+      localStream.value.getTracks().forEach((track) => {
+        if (peerConnection.value && localStream.value) {
+            peerConnection.value.addTrack(track, localStream.value)
+        }
+      })
     } catch (e) {
       console.error('[WebRTC] 無法存取攝影機/麥克風', e)
       ElNotification.error('無法存取攝影機或麥克風')
@@ -317,11 +321,20 @@ export const useChatStore = defineStore('chat', () => {
     
     if (!peerConnection.value) return;
 
-    // ★★★ [Safe] 移除手動修改 SDP 的邏輯，使用瀏覽器原生協商 (已由 setCodecPreferences 處理) ★★★
-    const offer = await peerConnection.value.createOffer()
+    // ★★★ [Legacy Compat] 使用傳統設定，確保接收影像 ★★★
+    const offer = await peerConnection.value.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+    })
+
+    // ★★★ [H264 Force] 手動修改 SDP，將 H264 移至第一順位 ★★★
+    if (offer.sdp) {
+        offer.sdp = setSDPCodecPreferences(offer.sdp, 'H264');
+    }
+
     await peerConnection.value.setLocalDescription(offer)
     
-    console.log('[WebRTC] 發送 OFFER 給', targetUser)
+    console.log('[WebRTC] 發送 OFFER (H264 forced) 給', targetUser)
     sendSignal({
       type: 'OFFER',
       receiver: targetUser,
@@ -337,9 +350,8 @@ export const useChatStore = defineStore('chat', () => {
       if (candidate) {
         try {
           await peerConnection.value.addIceCandidate(new RTCIceCandidate(candidate))
-          console.log('[WebRTC] 成功加入緩存的 ICE Candidate')
         } catch (e) {
-          console.error('[WebRTC] 加入緩存 ICE Candidate 失敗', e)
+          console.error('[WebRTC] ICE Error', e)
         }
       }
     }
@@ -361,11 +373,16 @@ export const useChatStore = defineStore('chat', () => {
     await peerConnection.value.setRemoteDescription(new RTCSessionDescription(offerData))
     await processCandidateQueue()
     
-    // ★★★ [Safe] 移除手動修改 SDP 的邏輯 ★★★
     const answer = await peerConnection.value.createAnswer()
+
+    // ★★★ [H264 Force] Answer 端也進行 SDP 修改，雙重保險 ★★★
+    if (answer.sdp) {
+        answer.sdp = setSDPCodecPreferences(answer.sdp, 'H264');
+    }
+
     await peerConnection.value.setLocalDescription(answer)
     
-    console.log('[WebRTC] 同意接聽，發送 ANSWER')
+    console.log('[WebRTC] 同意接聽，發送 ANSWER (H264 forced)')
     sendSignal({
         type: 'ANSWER',
         receiver: sender,
