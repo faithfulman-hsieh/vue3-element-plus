@@ -254,8 +254,7 @@ export const useChatStore = defineStore('chat', () => {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' }
-      ],
-      iceCandidatePoolSize: 10
+      ]
     }
     peerConnection.value = new RTCPeerConnection(config)
 
@@ -269,31 +268,42 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
+    peerConnection.value.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE Connection State:', peerConnection.value?.iceConnectionState);
+        if (peerConnection.value?.iceConnectionState === 'failed') {
+            ElNotification.error('網路連線失敗，請檢查網路環境');
+        }
+    };
+
+    peerConnection.value.onconnectionstatechange = () => {
+        console.log('[WebRTC] Peer Connection State:', peerConnection.value?.connectionState);
+    };
+
     peerConnection.value.ontrack = (event: any) => {
-      console.log('[WebRTC] 收到遠端軌道:', event.track.kind)
-      // 優先使用 event.streams[0]，如果沒有則手動建立
+      console.log('[WebRTC] 收到遠端軌道:', event.track.kind, 'Streams:', event.streams.length)
       if (event.streams && event.streams[0]) {
         remoteStream.value = event.streams[0]
       } else {
-        if (!remoteStream.value) {
-          remoteStream.value = new MediaStream()
-        }
-        remoteStream.value.addTrack(event.track)
+        const stream = remoteStream.value || new MediaStream()
+        stream.addTrack(event.track)
+        remoteStream.value = stream
       }
     }
 
     try {
+      console.log('[WebRTC] 正在取得本機媒體串流...');
       localStream.value = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      console.log('[WebRTC] 本機媒體串流取得成功, Tracks:', localStream.value.getTracks().map(t => t.kind));
       
-      // ★★★ [Revert] 改回傳統 addTrack，相容性最高 ★★★
       localStream.value.getTracks().forEach((track) => {
         if (peerConnection.value && localStream.value) {
+            console.log('[WebRTC] 添加軌道到 PeerConnection:', track.kind);
             peerConnection.value.addTrack(track, localStream.value)
         }
       })
-    } catch (e) {
-      console.error('[WebRTC] 無法存取攝影機/麥克風', e)
-      ElNotification.error('無法存取攝影機或麥克風')
+    } catch (e: any) {
+      console.error('[WebRTC] 無法存取攝影機/麥克風 Error Name:', e.name, 'Message:', e.message)
+      ElNotification.error(`無法存取攝影機或麥克風: ${e.message}`)
     }
   }
 
@@ -340,14 +350,16 @@ export const useChatStore = defineStore('chat', () => {
         offerToReceiveVideo: true
     })
 
-    // ★★★ [H264 Force] 手動修改 SDP，將 H264 移至第一順位 ★★★
+    // ★★★ [Debug] 暫時註解 H264 強制設定，測試原始協商 ★★★
+    /*
     if (offer.sdp) {
         offer.sdp = setSDPCodecPreferences(offer.sdp, 'H264');
     }
+    */
 
     await peerConnection.value.setLocalDescription(offer)
     
-    console.log('[WebRTC] 發送 OFFER (H264 forced) 給', targetUser)
+    console.log('[WebRTC] 發送 OFFER 給', targetUser)
     sendSignal({
       type: 'OFFER',
       receiver: targetUser,
@@ -388,14 +400,16 @@ export const useChatStore = defineStore('chat', () => {
     
     const answer = await peerConnection.value.createAnswer()
 
-    // ★★★ [H264 Force] Answer 端也進行 SDP 修改，雙重保險 ★★★
+    // ★★★ [Debug] 暫時註解 H264 強制設定 ★★★
+    /*
     if (answer.sdp) {
         answer.sdp = setSDPCodecPreferences(answer.sdp, 'H264');
     }
+    */
 
     await peerConnection.value.setLocalDescription(answer)
     
-    console.log('[WebRTC] 同意接聽，發送 ANSWER (H264 forced)')
+    console.log('[WebRTC] 同意接聽，發送 ANSWER')
     sendSignal({
         type: 'ANSWER',
         receiver: sender,
