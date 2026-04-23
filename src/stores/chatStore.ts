@@ -249,8 +249,13 @@ export const useChatStore = defineStore('chat', () => {
     
     const config = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' } 
-      ]
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ],
+      iceCandidatePoolSize: 10
     }
     peerConnection.value = new RTCPeerConnection(config)
 
@@ -265,8 +270,16 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     peerConnection.value.ontrack = (event: any) => {
-      console.log('[WebRTC] 收到遠端影像流')
-      remoteStream.value = event.streams[0]
+      console.log('[WebRTC] 收到遠端軌道:', event.track.kind)
+      // 優先使用 event.streams[0]，如果沒有則手動建立
+      if (event.streams && event.streams[0]) {
+        remoteStream.value = event.streams[0]
+      } else {
+        if (!remoteStream.value) {
+          remoteStream.value = new MediaStream()
+        }
+        remoteStream.value.addTrack(event.track)
+      }
     }
 
     try {

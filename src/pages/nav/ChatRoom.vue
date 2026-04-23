@@ -185,6 +185,38 @@ watch(
     }
   }
 );
+
+// ★★★ [Video Binding Fix] 比照 App.vue 使用 ref 監聽方式 ★★★
+const inlineLocalVideo = ref<HTMLVideoElement | null>(null);
+const inlineRemoteVideo = ref<HTMLVideoElement | null>(null);
+
+watch(inlineLocalVideo, async (el) => {
+  if (el && chatStore.localStream) {
+    el.srcObject = chatStore.localStream;
+    try { await el.play(); } catch(e) {}
+  }
+});
+
+watch(inlineRemoteVideo, async (el) => {
+  if (el && chatStore.remoteStream) {
+    el.srcObject = chatStore.remoteStream;
+    try { await el.play(); } catch(e) {}
+  }
+});
+
+watch(() => chatStore.localStream, async (stream) => {
+  if (inlineLocalVideo.value && stream) {
+    inlineLocalVideo.value.srcObject = stream;
+    try { await inlineLocalVideo.value.play(); } catch(e) {}
+  }
+});
+
+watch(() => chatStore.remoteStream, async (stream) => {
+  if (inlineRemoteVideo.value && stream) {
+    inlineRemoteVideo.value.srcObject = stream;
+    try { await inlineRemoteVideo.value.play(); } catch(e) {}
+  }
+});
 </script>
 
 <template>
@@ -270,19 +302,19 @@ watch(
         <div class="video-grid" v-if="chatStore.localStream || chatStore.remoteStream" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; background-color: #000; height: 240px;">
             <div class="video-wrapper local" style="position: relative; width: 100%; height: 100%; background: #333; overflow: hidden;">
                 <video 
+                    ref="inlineLocalVideo"
                     autoplay 
                     playsinline 
                     muted 
-                    :srcObject="chatStore.localStream"
                     style="width: 100%; height: 100%; object-fit: cover;"
                 ></video>
                 <div style="position: absolute; bottom: 8px; left: 8px; color: white; background: rgba(0,0,0,0.5); padding: 2px 8px; font-size: 12px;">我</div>
             </div>
             <div class="video-wrapper remote" style="position: relative; width: 100%; height: 100%; background: #333; overflow: hidden;">
                 <video 
+                    ref="inlineRemoteVideo"
                     autoplay 
                     playsinline 
-                    :srcObject="chatStore.remoteStream"
                     style="width: 100%; height: 100%; object-fit: cover;"
                 ></video>
                 <div style="position: absolute; bottom: 8px; left: 8px; color: white; background: rgba(0,0,0,0.5); padding: 2px 8px; font-size: 12px;">對方</div>

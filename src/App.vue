@@ -111,33 +111,49 @@ watch(
 // ★★★ [Video Fix] 雙向監聽：確保影像流與元素都能正確對應 ★★★
 
 // 1. 監聽「元素掛載」：當 v-if 成立，video 元素出現時，如果已有 stream 就綁定
-watch(localVideo, (el) => {
+watch(localVideo, async (el) => {
   if (el && chatStore.localStream) {
     el.srcObject = chatStore.localStream;
+    try {
+        await el.play();
+    } catch (e) {
+        console.warn('[WebRTC] Local video play interrupted', e);
+    }
   }
 });
 
-watch(remoteVideo, (el) => {
+watch(remoteVideo, async (el) => {
   if (el && chatStore.remoteStream) {
     el.srcObject = chatStore.remoteStream;
+    try {
+        await el.play();
+    } catch (e) {
+        console.warn('[WebRTC] Remote video play interrupted', e);
+    }
   }
 });
 
-// 2. 監聽「Stream 變化」：當元素已存在，且 Stream 發生變化時綁定 (保留原本邏輯，但移除 nextTick 依賴)
+// 2. 監聽「Stream 變化」：當元素已存在，且 Stream 發生變化時綁定
 watch(
   () => chatStore.localStream,
-  (newStream) => {
+  async (newStream) => {
     if (localVideo.value && newStream) {
       localVideo.value.srcObject = newStream;
+      try {
+          await localVideo.value.play();
+      } catch (e) {}
     }
   }
 );
 
 watch(
   () => chatStore.remoteStream,
-  (newStream) => {
+  async (newStream) => {
     if (remoteVideo.value && newStream) {
       remoteVideo.value.srcObject = newStream;
+      try {
+          await remoteVideo.value.play();
+      } catch (e) {}
     }
   }
 );
