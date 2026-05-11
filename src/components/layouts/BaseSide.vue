@@ -25,6 +25,11 @@
         <el-icon><Tickets /></el-icon>
         <template #title>我的申請紀錄</template>
       </el-menu-item>
+
+      <el-menu-item index="/calendar">
+        <el-icon><Calendar /></el-icon>
+        <template #title>Google 行事曆</template>
+      </el-menu-item>
     </el-sub-menu>
 
     <el-sub-menu index="/process-admin">
@@ -95,7 +100,8 @@ import {
   InfoFilled,
   CirclePlus,
   Tickets,
-  Grid
+  Grid,
+  Calendar
 } from '@element-plus/icons-vue'
 
 const isCollapse = ref(false)

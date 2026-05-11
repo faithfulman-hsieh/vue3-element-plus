@@ -62,4 +62,7 @@ export const chatApi = {
   getOnlineUsers: () => chatAxios.get('/api/chat/online-users'),
 };
 
+// ★★★ Google Calendar PoC ★★★
+export { calendarApi } from './api/calendar-api';
+
 export default chatAxios;

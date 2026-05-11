@@ -15,6 +15,8 @@ import ProcessStartView from '../pages/nav/ProcessStartView.vue';
 import MyRequestView from '../pages/nav/MyRequestView.vue';
 // ★★★ Import ChatRoom ★★★
 import ChatRoom from '../pages/nav/ChatRoom.vue';
+// ★★★ Google Calendar PoC ★★★
+import CalendarView from '../pages/nav/CalendarView.vue';
 
 export const routes = [
   {
@@ -93,6 +95,12 @@ export const routes = [
     name: 'chatRoom',
     component: ChatRoom,
     meta: { requiresAuth: true },
+  },
+  // ★★★ Google Calendar PoC ★★★
+  {
+    path: '/calendar',
+    name: 'calendar',
+    component: CalendarView,
   },
 
 ];
